@@ -1,0 +1,47 @@
+name: AirliftSilence
+options:
+  bundleIdPrefix: com.yihoooong
+  deploymentTarget:
+    iOS: "18.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1.0.0"
+    TARGETED_DEVICE_FAMILY: "1"
+    # AirliftFFI is arm64-only (aws-lc-rs / idevice); drop the x86_64 simulator slice.
+    EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  AirliftSilence:
+    type: application
+    platform: iOS
+    sources:
+      - path: ios-app
+      # Folder reference: keeps Resources/silent and Resources/original as
+      # separate directories in the bundle. Without `type: folder` XcodeGen
+      # flattens them and the two StartDisclosureWithTone.m4a collide.
+      - path: ios-app/Resources
+        type: folder
+    dependencies:
+      - framework: AirliftFFI.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_NAME: "AirliftSilence"
+        PRODUCT_BUNDLE_IDENTIFIER: com.yihoooong.airliftsilence
+        INFOPLIST_FILE: ios-app/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # idevice's static lib pulls in C++ symbols (aws-lc); link libc++.
+        OTHER_LDFLAGS: "-lc++"
+        GENERATE_INFOPLIST_FILE: NO
+
+schemes:
+  AirliftSilence:
+    build:
+      targets:
+        AirliftSilence: all

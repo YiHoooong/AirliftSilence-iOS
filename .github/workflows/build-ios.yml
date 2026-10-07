@@ -1,0 +1,67 @@
+name: Build unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths:
+      - "rust-core/**"
+      - "ios-app/**"
+      - "project.yml"
+      - "build-ios.sh"
+      - "build-ipa.sh"
+      - ".github/workflows/build-ios.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    name: Build AirliftSilence.ipa
+    runs-on: macos-14
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the runner's default Xcode
+        run: echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Install Rust + iOS targets
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --default-toolchain stable --profile minimal
+          source "$HOME/.cargo/env"
+          rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+          rustc --version
+
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            rust-core/target
+          key: rust-ios-${{ hashFiles('rust-core/Cargo.toml', 'rust-core/Cargo.lock') }}
+          restore-keys: rust-ios-
+
+      - name: Build Rust core and repackage AirliftFFI.xcframework
+        run: ./build-ios.sh
+
+      - name: Build unsigned IPA
+        run: ./build-ipa.sh Release
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirliftSilence-unsigned-ipa
+          path: build/AirliftSilence.ipa
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Show artifact size
+        run: ls -lh build/AirliftSilence.ipa
