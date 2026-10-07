@@ -1,6 +1,48 @@
 import Foundation
 import CryptoKit
+import UserNotifications
 import AirliftFFI
+
+// MARK: - App identity
+
+/// The app's single public name. Used for the home screen, the pairing host
+/// advertised to Settings › Developer Mode, and the UI headings, so the device
+/// never shows a different name than the app calls itself.
+enum AppIdentity {
+    static let name = "AirliftSilence"
+}
+
+// MARK: - Pairing PIN notification
+
+/// The PIN has to be read while the user is inside Settings typing it, and the
+/// app's own screen is not visible at that moment — so post it as a
+/// notification as well.
+enum PinNotifier {
+    private static let identifier = "airlift-silence-pairing-pin"
+
+    static func requestAuthorization() {
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    static func post(pin: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "配对码  \(pin)"
+        content.body = "在 设置 › 隐私与安全性 › 开发者模式 › 与 App 配对 里输入"
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive
+
+        UNUserNotificationCenter.current().add(
+            UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
+        )
+    }
+
+    static func clear() {
+        let center = UNUserNotificationCenter.current()
+        center.removeDeliveredNotifications(withIdentifiers: [identifier])
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
+}
 
 // MARK: - Log sink
 
@@ -107,7 +149,7 @@ final class SilenceViewModel: ObservableObject {
     func refreshPairingState() {
         let path = PairingController.pairingFilePath()
         pairingReady = FileManager.default.fileExists(atPath: path)
-        pairingName = PairingControllerHostName
+        pairingName = AppIdentity.name
     }
 
     func saveDeviceIP() {
@@ -313,9 +355,3 @@ final class SilenceViewModel: ObservableObject {
         return rc == 0
     }
 }
-
-// MARK: - Pairing host name
-
-/// The on-device pairing host advertises itself under this name in
-/// Settings › Privacy & Security › Developer Mode › Pair with App.
-let PairingControllerHostName = "AirliftSilence"

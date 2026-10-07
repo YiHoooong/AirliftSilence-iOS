@@ -41,9 +41,11 @@ The original write path is untouched on purpose.
   `127.0.0.1`** — on iOS that makes `remotepairingdeviced` reject the control channel and enter a
   drop state where every later connection fails, recoverable only by toggling Developer Mode off
   and on.
-- A pairing record. Either import one (AirDrop / Files → the app's Documents, named
-  `airlift_pairing.plist`), or use the built-in on-device pairing:
-  **开始配对** → note the PIN → Settings › Privacy & Security › Developer Mode › Pair with App.
+- A pairing record. Either import one (AirDrop / Files → the app's Documents, as
+  `airlift_pairing.plist`), or use the built-in on-device pairing: **开始配对** → note the PIN →
+  Settings › Privacy & Security › Developer Mode › **Pair with AirliftSilence**.
+  Allow notifications when asked: the PIN is also delivered as a notification, because the moment it
+  appears you are inside Settings typing it and the app's own screen is out of sight.
 - The official Apple Books app installed and opened at least once — `com.apple.atc` refuses the
   sync otherwise, which is the #1 cause of "ReadyForSync not observed".
 
@@ -104,8 +106,23 @@ one to its real filename before it is written to the device.
   recording requires all-party consent (Germany, several US states). Get consent before recording
   anyone — the law applies to you whatever your phone does or does not announce.
 
-## Credits
+## Naming and artwork
 
+The app calls itself **AirliftSilence** everywhere it is visible: the home screen, the navigation
+title, the pairing host advertised to Settings, and the pairing file it leaves in Documents
+(`airlift_pairing.plist`). Nothing user-facing carries the upstream AirCard name.
+
+The icon is drawn from scratch by `tools/make-icon.py` (Pillow) rather than shipped as a binary
+blob, so the repository contains no borrowed artwork and the design is editable as numbers:
+
+```sh
+python3 tools/make-icon.py
+```
+
+It renders a muted speaker — a "sound off" mark, which is what the app does — over a navy-to-blue
+gradient, and writes all five sizes the asset catalog expects.
+
+## Credits
 - [airlift](https://github.com/0xjohnnydev/airlift) — Johnny Franks: the original PoC and the
   ATAirlock analysis
 - [AirCard-iOS](https://github.com/Mak5er/AirCard-iOS) — Mak5er: the loopback tunnel, the Rust FFI

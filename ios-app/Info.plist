@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>提示音静音</string>
+	<string>AirliftSilence</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -25,11 +25,11 @@
 		<string>localdevvpn</string>
 	</array>
 	<!-- Local Network: RPPairing host + loopback tunnel.
-	     _aircardprobe._tcp must stay in sync with Utilities.swift. -->
+	     _airliftsilence._tcp must stay in sync with Utilities.swift. -->
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_remotepairing-pairable-host._tcp</string>
-		<string>_aircardprobe._tcp</string>
+		<string>_airliftsilence._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>本 App 需要局域网权限：它会临时广播一个配对服务，让这台 iPhone 与自己配对，并通过回环隧道连接本机的服务来写入提示音文件。</string>

@@ -10,6 +10,11 @@ struct AirliftSilenceApp: App {
             SilenceLog.shared.append(String(cString: msg))
         }, nil)
 
+        // Pairing hands the user a PIN they have to type while inside Settings,
+        // where this app is off-screen — ask up front so the notification can
+        // actually be delivered later.
+        PinNotifier.requestAuthorization()
+
         // The Rust core looks up ALGetGrappaToken with dlsym(RTLD_DEFAULT, …).
         // Without a hard reference the linker is free to drop the symbol from
         // GrappaHelper.m, and iOS 27.0.1 then rejects every sync with

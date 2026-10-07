@@ -19,7 +19,7 @@ struct ContentView: View {
                 }
                 .padding()
             }
-            .navigationTitle("通话录音提示音")
+            .navigationTitle(AppIdentity.name)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { vm.check() }
         }

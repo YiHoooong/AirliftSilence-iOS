@@ -9,7 +9,7 @@ final class PairingController: ObservableObject {
 
     static let shared = PairingController()
 
-    private let hostName = "AirCard-iOS"
+    private let hostName = AppIdentity.name
     private let hostModel = "Mac17,7"   // device sees a Mac-like pairing host
     private let bindAddress = "0.0.0.0"
 
@@ -26,7 +26,7 @@ final class PairingController: ObservableObject {
 
     /// Persisted altIRK keeps the host identity stable across pairings so a
     /// device that has already paired recognises this host.
-    private static let altIRKKey = "aircardPairingHostAltIRK"
+    private static let altIRKKey = "airliftSilencePairingHostAltIRK"
     nonisolated private static var storedAltIRK: String {
         get { UserDefaults.standard.string(forKey: altIRKKey) ?? "" }
         set { UserDefaults.standard.set(newValue, forKey: altIRKKey) }
@@ -45,77 +45,65 @@ final class PairingController: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .busy: return "Pairing is already in progress."
-            case .localNetworkDenied: return "Local Network permission is off. Enable it in Settings › AirCard-iOS › Local Network."
+            case .localNetworkDenied: return "Local Network permission is off. Enable it in Settings › \(AppIdentity.name) › Local Network."
             case .zeroBytes: return "Pairing produced an empty file. Approve the pairing request, then try again."
             case let .failed(msg): return msg
             }
         }
     }
 
-    /// Ensures the given pairing file is mirrored to canonical aircard_pairing.plist and airlift_pairing.plist.
+    /// The single pairing file this app reads and writes. It lives in Documents,
+    /// which is visible in the Files app (file sharing is on), so it carries the
+    /// app's own name rather than the upstream project's.
+    static let pairingFileName = "airlift_pairing.plist"
+
+    /// Ensures the given pairing file is copied to the canonical path.
     @discardableResult
     static func syncCanonicalPairingFile(from sourcePath: String) -> String {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let aircardURL = dir.appendingPathComponent("aircard_pairing.plist")
-        let airliftURL = dir.appendingPathComponent("airlift_pairing.plist")
+        let canonicalURL = dir.appendingPathComponent(pairingFileName)
 
         if let data = try? Data(contentsOf: URL(fileURLWithPath: sourcePath)), !data.isEmpty {
-            if sourcePath != aircardURL.path {
-                try? data.write(to: aircardURL, options: .atomic)
+            if sourcePath != canonicalURL.path {
+                try? data.write(to: canonicalURL, options: .atomic)
             }
-            if sourcePath != airliftURL.path {
-                try? data.write(to: airliftURL, options: .atomic)
-            }
-            customPairingFilePath = aircardURL.path
-            return aircardURL.path
+            customPairingFilePath = canonicalURL.path
+            return canonicalURL.path
         }
         return sourcePath
     }
 
-    /// Deletes every credential copy created or adopted by AirCard and clears the stored AltIRK.
+    /// Deletes every credential copy created or adopted by this app and clears the stored AltIRK.
     static func deleteStoredPairingCredentials() {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let aircardURL = dir.appendingPathComponent("aircard_pairing.plist")
-        let airliftURL = dir.appendingPathComponent("airlift_pairing.plist")
-        try? FileManager.default.removeItem(at: aircardURL)
-        try? FileManager.default.removeItem(at: airliftURL)
-        if let custom = customPairingFilePath {
-            if custom != aircardURL.path && custom != airliftURL.path {
-                try? FileManager.default.removeItem(atPath: custom)
-            }
+        let canonicalURL = dir.appendingPathComponent(pairingFileName)
+        try? FileManager.default.removeItem(at: canonicalURL)
+        if let custom = customPairingFilePath, custom != canonicalURL.path {
+            try? FileManager.default.removeItem(atPath: custom)
             customPairingFilePath = nil
         }
         storedAltIRK = ""
     }
 
     /// Path where the pairing file is written or read from.
-    /// Checks for canonical aircard_pairing.plist, airlift_pairing.plist, or custom path.
     static func pairingFilePath() -> String {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let aircardPath = dir.appendingPathComponent("aircard_pairing.plist").path
-        if FileManager.default.fileExists(atPath: aircardPath) {
-            let size = (try? FileManager.default.attributesOfItem(atPath: aircardPath)[.size] as? Int) ?? 0
-            if size > 0 { return aircardPath }
-        }
+        let canonicalPath = dir.appendingPathComponent(pairingFileName).path
 
-        let airliftPath = dir.appendingPathComponent("airlift_pairing.plist").path
-        if FileManager.default.fileExists(atPath: airliftPath) {
-            let size = (try? FileManager.default.attributesOfItem(atPath: airliftPath)[.size] as? Int) ?? 0
-            if size > 0 {
-                _ = syncCanonicalPairingFile(from: airliftPath)
-                return aircardPath
-            }
+        if let size = try? FileManager.default.attributesOfItem(atPath: canonicalPath)[.size] as? Int,
+           size > 0 {
+            return canonicalPath
         }
 
         if let custom = customPairingFilePath, FileManager.default.fileExists(atPath: custom) {
             let size = (try? FileManager.default.attributesOfItem(atPath: custom)[.size] as? Int) ?? 0
             if size > 0 {
                 _ = syncCanonicalPairingFile(from: custom)
-                return aircardPath
+                return canonicalPath
             }
         }
 
-        return aircardPath
+        return canonicalPath
     }
 
     /// Start the host and resolve with the pairing-file path, or throw.
@@ -137,6 +125,7 @@ final class PairingController: ObservableObject {
         running = false
         pairingPIN = nil
         pairingStatus = "Cancelled"
+        PinNotifier.clear()
         resolve(.failure(CancellationError()))
     }
 
@@ -151,6 +140,7 @@ final class PairingController: ObservableObject {
         keepAlive.stopAll()
         running = true
         pairingPIN = nil
+        PinNotifier.clear()
         pairingStatus = "Starting local host…"
 
         Task {
@@ -227,6 +217,7 @@ final class PairingController: ObservableObject {
         }
         running = false
         pairingPIN = nil
+        PinNotifier.clear()
 
         switch outcome {
         case let .success(name, path):
@@ -264,7 +255,9 @@ final class PairingController: ObservableObject {
 
     fileprivate func presentPin(_ pin: String) {
         pairingPIN = pin
-        pairingStatus = "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with AirCard-iOS"
+        pairingStatus = "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with \(AppIdentity.name)"
+        // The user is inside Settings at this point, so surface the code there too.
+        PinNotifier.post(pin: pin)
     }
 
     private func stopAdvertising() {

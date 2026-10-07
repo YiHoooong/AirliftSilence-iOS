@@ -85,7 +85,7 @@ final class LocalNetworkAuthorization {
     private var continuation: CheckedContinuation<Bool, Never>?
 
     // Must match an entry in Info.plist NSBonjourServices.
-    private let probeType = "_aircardprobe._tcp"
+    private let probeType = "_airliftsilence._tcp"
 
     func request(timeout: TimeInterval = 1.5) async -> Bool {
         await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
@@ -95,7 +95,7 @@ final class LocalNetworkAuthorization {
             params.includePeerToPeer = true
 
             let listener = try? NWListener(using: params)
-            listener?.service = NWListener.Service(name: "AirCardProbe", type: probeType)
+            listener?.service = NWListener.Service(name: "AirliftSilenceProbe", type: probeType)
             listener?.newConnectionHandler = { $0.cancel() }
             listener?.stateUpdateHandler = { [weak self] state in
                 if case .failed = state {
