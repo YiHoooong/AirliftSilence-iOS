@@ -68,6 +68,11 @@ enum SilenceState {
     }
 }
 
+/// `Result`'s failure type must conform to `Error`; `String` does not.
+struct SilenceFailure: Error {
+    let message: String
+}
+
 // MARK: - View model
 
 @MainActor
@@ -199,8 +204,8 @@ final class SilenceViewModel: ObservableObject {
                     }
                     tags.append(tag)
                     lines.append("\(leaf) — \(tag) · \(size) 字节 · \(digest.prefix(12))…")
-                case .failure(let message):
-                    lines.append("✗ \(leaf): \(message)")
+                case .failure(let failure):
+                    lines.append("✗ \(leaf): \(failure.message)")
                 }
             }
 
@@ -267,7 +272,7 @@ final class SilenceViewModel: ObservableObject {
 
     // MARK: FFI
 
-    private func readHash(leaf: String) -> Result<(UInt64, String), String> {
+    private func readHash(leaf: String) -> Result<(UInt64, String), SilenceFailure> {
         var size: UInt64 = 0
         var sha: UnsafeMutablePointer<CChar>?
         var outError: UnsafeMutablePointer<CChar>?
@@ -285,9 +290,9 @@ final class SilenceViewModel: ObservableObject {
         }
         if rc != 0 {
             let message = outError.map { String(cString: $0) } ?? "读取失败（rc=\(rc)）"
-            return .failure(message)
+            return .failure(SilenceFailure(message: message))
         }
-        guard let s = sha else { return .failure("设备没有返回内容") }
+        guard let s = sha else { return .failure(SilenceFailure(message: "设备没有返回内容")) }
         return .success((size, String(cString: s)))
     }
 
