@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @StateObject private var vm = SilenceViewModel()
@@ -30,7 +31,7 @@ struct ContentView: View {
         VStack(spacing: 10) {
             Image(systemName: vm.state.symbol)
                 .font(.system(size: 52))
-                .foregroundColor(tint(vm.state))
+                .foregroundColor(stateColor(vm.state))
             Text(vm.state.label)
                 .font(.title2.weight(.semibold))
             if vm.busy {
@@ -66,7 +67,7 @@ struct ContentView: View {
         .cornerRadius(12)
     }
 
-    private func tint(_ state: SilenceState) -> Color {
+    private func stateColor(_ state: SilenceState) -> Color {
         switch state {
         case .unknown: return .gray
         case .silent: return .green
