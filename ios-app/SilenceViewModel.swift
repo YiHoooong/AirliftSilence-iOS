@@ -161,19 +161,15 @@ final class SilenceViewModel: ObservableObject {
 
     // MARK: resources
 
-    /// Directory holding the bundled replacement files ("silent" / "original").
-    /// The Xcode project adds `Resources` as a folder reference, so the layout
-    /// survives into the bundle; the flattened names are tried as a fallback.
-    private func bundledDir(_ name: String) -> URL? {
-        let fm = FileManager.default
-        guard let res = Bundle.main.resourceURL else { return nil }
-        let candidates = [
-            res.appendingPathComponent("Resources/\(name)"),
-            res.appendingPathComponent(name),
-            res.appendingPathComponent("Resources").appendingPathComponent(name),
-        ]
-        for url in candidates where fm.fileExists(atPath: url.path) { return url }
-        return nil
+    /// Bundled replacement file for one target. Resources carry a
+    /// `silent-` / `original-` prefix so the two same-named announcement files
+    /// can coexist in the bundle; the staging step renames them back.
+    private func bundledFile(_ group: String, _ leaf: String) -> URL? {
+        let ns = leaf as NSString
+        return Bundle.main.url(
+            forResource: "\(group)-\(ns.deletingPathExtension)",
+            withExtension: ns.pathExtension
+        )
     }
 
     private func sha256(of url: URL) -> String? {
@@ -191,10 +187,8 @@ final class SilenceViewModel: ObservableObject {
             for leaf in Self.leaves {
                 switch readHash(leaf: leaf) {
                 case .success(let size, let digest):
-                    let silent = bundledDir("silent")
-                        .flatMap { sha256(of: $0.appendingPathComponent(leaf)) }
-                    let original = bundledDir("original")
-                        .flatMap { sha256(of: $0.appendingPathComponent(leaf)) }
+                    let silent = bundledFile("silent", leaf).flatMap { sha256(of: $0) }
+                    let original = bundledFile("original", leaf).flatMap { sha256(of: $0) }
                     let tag: String
                     if digest == silent {
                         tag = "静音"
@@ -235,24 +229,27 @@ final class SilenceViewModel: ObservableObject {
     func silence() { write(bundled: "silent", title: "去除提示音") }
     func restore() { write(bundled: "original", title: "恢复原版") }
 
-    private func write(bundled name: String, title: String) {
-        guard let source = bundledDir(name) else {
-            log.append("✗ 找不到内置资源目录 Resources/\(name)")
-            return
+    private func write(bundled group: String, title: String) {
+        // Resolve the bundled files up front (on the main actor) so the
+        // background job only has to copy and rename.
+        var sources: [(leaf: String, url: URL)] = []
+        for leaf in Self.leaves {
+            guard let url = bundledFile(group, leaf) else {
+                log.append("✗ 找不到内置资源 \(group)-\(leaf)")
+                return
+            }
+            sources.append((leaf, url))
         }
+
         perform(title) { [self] in
-            // Stage a private copy so the exploit writes exactly these two files.
+            // Stage a private copy under the real file names — write_dir sends
+            // every file in this folder to the device using its leaf name.
             let stageDir = FileManager.default.temporaryDirectory
                 .appendingPathComponent("silence_\(UUID().uuidString)")
             do {
                 try FileManager.default.createDirectory(at: stageDir, withIntermediateDirectories: true)
-                for leaf in Self.leaves {
-                    let src = source.appendingPathComponent(leaf)
-                    guard FileManager.default.fileExists(atPath: src.path) else {
-                        SilenceLog.shared.append("✗ 缺少内置文件 \(leaf)")
-                        return
-                    }
-                    try FileManager.default.copyItem(at: src, to: stageDir.appendingPathComponent(leaf))
+                for (leaf, url) in sources {
+                    try FileManager.default.copyItem(at: url, to: stageDir.appendingPathComponent(leaf))
                 }
             } catch {
                 SilenceLog.shared.append("✗ 暂存失败: \(error.localizedDescription)")
@@ -263,7 +260,7 @@ final class SilenceViewModel: ObservableObject {
             let ok = writeDir(source: stageDir.path, target: Self.targetDir)
             Task { @MainActor in
                 self.log.append(ok ? "✅ \(title)完成" : "✗ \(title)失败")
-                if ok { self.state = (name == "silent") ? .silent : .original }
+                if ok { self.state = (group == "silent") ? .silent : .original }
             }
         }
     }

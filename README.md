@@ -82,13 +82,16 @@ Both files live in the same directory, so one write covers both:
 /var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf
 ```
 
-The bundled `Resources/silent` files are plain `ffmpeg anullsrc` silence, matched to the duration
-and codec of the versions shipping today (AAC 1.672 s, Opus 1.920 s), so playback timing is
-unchanged.
+The bundled `silent-*` files are plain `ffmpeg anullsrc` silence, matched to the duration and codec
+of the versions shipping today (AAC 1.672 s, Opus 1.920 s), so playback timing is unchanged.
 
-`Resources/original` holds Apple's current recordings so **恢复原版** has something to put back.
-Those two files are Apple's audio, bundled for your own device only — don't redistribute this
-repository with them if that matters to you.
+The `original-*` files hold Apple's current recordings so **恢复原版** has something to put back.
+Those two are Apple's audio, bundled for your own device only — don't redistribute this repository
+with them if that matters to you.
+
+Both sets sit in one folder with a `silent-` / `original-` prefix, because XcodeGen flattens
+directory contents into the bundle root and the two files share a name; the staging step copies each
+one to its real filename before it is written to the device.
 
 ## Known limits
 

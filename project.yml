@@ -25,12 +25,11 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Resource files carry a "silent-"/"original-" prefix so every name is
+      # unique. XcodeGen flattens directory contents into the bundle root, and
+      # both sets used to hold StartDisclosureWithTone.m4a, which Xcode rejects
+      # with "Multiple commands produce …". The staging step renames them back.
       - path: ios-app
-      # Folder reference: keeps Resources/silent and Resources/original as
-      # separate directories in the bundle. Without `type: folder` XcodeGen
-      # flattens them and the two StartDisclosureWithTone.m4a collide.
-      - path: ios-app/Resources
-        type: folder
     dependencies:
       - framework: AirliftFFI.xcframework
         embed: false
