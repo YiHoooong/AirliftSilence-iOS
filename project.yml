@@ -4,6 +4,10 @@ options:
   deploymentTarget:
     iOS: "18.0"
   createIntermediateGroups: true
+  # Pin the project format. XcodeGen's default moves with its own releases, and a
+  # project written by a newer XcodeGen than the runner's Xcode cannot be opened
+  # ("future Xcode project file format"). xcode16_0 is readable by Xcode 16+.
+  projectFormat: xcode16_0
 
 settings:
   base:

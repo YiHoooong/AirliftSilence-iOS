@@ -19,14 +19,22 @@ concurrency:
 jobs:
   ipa:
     name: Build AirliftSilence.ipa
-    runs-on: macos-14
+    # Needs Xcode 16+ for the iOS 18 SDK. macos-14 ships Xcode 15.4 / iOS 17.5,
+    # which cannot build a deploymentTarget of 18.0.
+    runs-on: macos-15
     timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use the runner's default Xcode
-        run: echo "DEVELOPER_DIR=$(xcode-select -p)" >> "$GITHUB_ENV"
+      - name: Select the newest Xcode on the runner
+        run: |
+          set -euo pipefail
+          latest="$(ls -d /Applications/Xcode*.app | sort -V | tail -n1)"
+          echo "Selected: $latest"
+          sudo xcode-select -s "$latest"
+          echo "DEVELOPER_DIR=$latest/Contents/Developer" >> "$GITHUB_ENV"
+          xcodebuild -version
 
       - name: Install xcodegen
         run: brew install xcodegen
