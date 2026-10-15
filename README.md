@@ -53,9 +53,15 @@ The original write path is untouched on purpose.
 
 Once a record exists, **导出配对文件** hands it to the share sheet — AirDrop, Save to Files, and so
 on. Worth doing: re-signing a sideloaded build gives it a fresh container, so the record does not
-survive a reinstall. The reverse works too — open a `.plist` with *AirliftSilence* (`Open in
-AirliftSilence`), or just drop it into the app's Documents folder, and it is adopted as the
-canonical pairing file.
+survive a reinstall.
+
+Getting one back in has three routes, in rough order of reliability:
+
+1. **导入配对文件** — an in-app file picker. Works with the `.plist`,
+   `.mobiledevicepairing` and `.mobilepairing` names the various sideloaders use.
+2. Drop the file into the app's Documents folder (file sharing is on), named
+   `airlift_pairing.plist`.
+3. Open a `.plist` with *AirliftSilence* from the share sheet (`Open in AirliftSilence`).
 
 ## Build
 

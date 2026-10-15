@@ -1,10 +1,41 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var vm = SilenceViewModel()
     @ObservedObject private var pairing = PairingController.shared
     @State private var showLog = false
+    @State private var showImporter = false
+
+    /// Pairing files come from other sideloaders, which do not agree on an
+    /// extension. `.plist` covers an exported record; the rest are the names
+    /// SideStore / LiveContainer / Jitterbug use.
+    private static let pairingTypes: [UTType] = {
+        var types: [UTType] = [.propertyList, .data]
+        for ext in ["mobiledevicepairing", "mobilepairing", "plist"] {
+            if let t = UTType(filenameExtension: ext), !types.contains(t) {
+                types.append(t)
+            }
+        }
+        return types
+    }()
+
+    /// Adopt a pairing file the user handed us, whether it came from the
+    /// document picker or from "Open in AirliftSilence". A URL from outside the
+    /// sandbox needs security-scoped access before it can be read.
+    private func adopt(_ url: URL) {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
+        vm.refreshPairingState()
+        if vm.pairingReady {
+            vm.log.append("已导入配对文件：\((adopted as NSString).lastPathComponent)")
+        } else {
+            vm.log.append("该文件读不出内容，可能不是有效的配对记录：\(url.lastPathComponent)")
+        }
+    }
 
     var body: some View {
         NavigationView {
@@ -27,9 +58,7 @@ struct ContentView: View {
             // ("Open in AirliftSilence") instead of silently doing nothing.
             .onOpenURL { url in
                 guard url.isFileURL else { return }
-                let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
-                vm.refreshPairingState()
-                vm.log.append("已导入配对文件：\((adopted as NSString).lastPathComponent)")
+                adopt(url)
             }
         }
     }
@@ -175,16 +204,44 @@ struct ContentView: View {
                 }
             }
 
-            // Pairing records are easy to lose — a re-signed build gets a fresh
-            // container — so hand the user a way to get a copy out.
-            if let url = vm.pairingFileURL {
-                ShareLink(item: url) {
-                    Label("导出配对文件", systemImage: "square.and.arrow.up")
+            // Import and export side by side. Importing through a picker is more
+            // dependable than the document route: it needs no Info.plist
+            // registration and no app restart, and it works for the pairing-file
+            // extensions other sideloaders use.
+            HStack(spacing: 10) {
+                Button {
+                    showImporter = true
+                } label: {
+                    Label("导入配对文件", systemImage: "square.and.arrow.down")
                         .font(.subheadline)
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
+
+                // Pairing records are easy to lose — a re-signed build gets a
+                // fresh container — so hand the user a way to get a copy out.
+                if let url = vm.pairingFileURL {
+                    ShareLink(item: url) {
+                        Label("导出配对文件", systemImage: "square.and.arrow.up")
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showImporter,
+            allowedContentTypes: Self.pairingTypes,
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                if let url = urls.first { adopt(url) }
+            case .failure(let error):
+                vm.log.append("导入失败：\(error.localizedDescription)")
             }
         }
         .padding(12)
