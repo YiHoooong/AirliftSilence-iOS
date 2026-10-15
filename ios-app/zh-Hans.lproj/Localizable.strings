@@ -1,0 +1,87 @@
+/* AirliftSilence — Simplified Chinese.
+   The development language is English: the keys below are the exact
+   English strings in the Swift sources. tools/check-strings.py verifies
+   that every key here still exists in the code.
+   This file is UTF-8. */
+
+/* MARK: - Status and actions */
+"Not checked" = "未检测";
+"Silenced" = "已静音";
+"Original (audible)" = "原版（会响）";
+"Partly silenced" = "部分静音";
+"iOS plays a tone into the call when recording starts and stops" = "录音开始和结束时，iOS 会把提示音播给通话双方";
+"Check" = "检测";
+"Silence the announcements" = "去除提示音";
+"Restore the originals" = "恢复原版";
+
+/* MARK: - Pairing card */
+"Pairing file ready" = "配对文件已就绪";
+"Pairing required" = "需要先配对";
+"A pairing file was found, so every action is available." = "已找到配对文件，可以执行操作。";
+"The exploit needs a pairing file. Pair this iPhone with itself below, or share an existing pairing file into this app." = "这个漏洞需要一份配对文件。可以点下面的按钮让这台 iPhone 给自己配对，也可以把现成的配对文件分享进本 App。";
+"PIN: %@" = "PIN：%@";
+"Type it in Settings › Privacy & Security › Developer Mode › Pair with App" = "在 设置 › 隐私与安全性 › 开发者模式 › 与 App 配对 里输入";
+"Pairing… %@" = "配对中…%@";
+"Cancel" = "取消";
+"Start pairing" = "开始配对";
+"Re-check" = "重新检查";
+"Open LocalDevVPN" = "打开 LocalDevVPN";
+"Import pairing file" = "导入配对文件";
+"Export pairing file" = "导出配对文件";
+"Import failed: %@" = "导入失败：%@";
+"Imported pairing file: %@" = "已导入配对文件：%@";
+"That file has no readable content, so it is probably not a pairing record: %@" = "这个文件读不出内容，可能不是有效的配对记录：%@";
+"✅ Paired: %@" = "✅ 配对完成：%@";
+"✗ Pairing failed: %@" = "✗ 配对失败：%@";
+"Unknown action in URL: %@" = "URL 里的动作无法识别：%@";
+
+/* MARK: - Pairing status */
+"Cancelled" = "已取消";
+"Starting local host…" = "正在启动本机配对服务…";
+"Broadcasting… open Settings to pair" = "正在广播…请打开设置完成配对";
+"Advertising — open Settings › Privacy & Security › Developer Mode" = "广播中 — 请打开 设置 › 隐私与安全性 › 开发者模式";
+"Enter PIN %@ in Settings › Privacy & Security › Developer Mode › Pair with %@" = "把 PIN %@ 输入到 设置 › 隐私与安全性 › 开发者模式 › 与 %@ 配对";
+"Paired: %@ (%@ B)" = "已配对：%@（%@ B）";
+"Failed: %@" = "失败：%@";
+"Failed: empty pairing file" = "失败：配对文件是空的";
+"pairing failed (rc=%@)" = "配对失败（rc=%@）";
+"Pairing is already in progress." = "配对正在进行中。";
+"Local Network permission is off. Enable it in Settings › %@ › Local Network." = "「本地网络」权限被关掉了，请在 设置 › %@ › 本地网络 里打开。";
+"Pairing produced an empty file. Approve the pairing request, then try again." = "配对生成了一个空文件。请在设置里批准配对请求后重试。";
+
+/* MARK: - Tunnel card */
+"Pairing code  %@" = "配对码  %@";
+"Loopback tunnel address" = "回环隧道地址";
+"LocalDevVPN has to be running in loopback mode. 10.7.0.1 by default; try 10.7.0.2 or 10.7.0.3 if it will not connect." = "需要开着 LocalDevVPN（回环模式）。默认 10.7.0.1，连不上可以试 10.7.0.2 / 10.7.0.3。";
+
+/* MARK: - Run log and check detail */
+"⚠️ Never enter 127.0.0.1: remotepairingdeviced refuses the control channel and drops into a state where every connection fails, until you toggle Developer Mode off and on again." = "⚠️ 不要填 127.0.0.1：会让 remotepairingdeviced 拒绝控制通道并进入丢弃状态，之后所有连接都会失败，只能靠关掉再打开开发者模式恢复。";
+"Run log" = "运行日志";
+"Show" = "展开";
+"Hide" = "收起";
+"%@ — %@ · %@ bytes · %@…" = "%@ — %@ · %@ 字节 · %@…";
+"silenced" = "静音";
+"original" = "原版";
+"unknown build" = "未知版本";
+"Result: %@" = "检测结果：%@";
+"Call-recording announcements: %@" = "通话录音提示音：%@";
+"✅ %@ finished" = "✅ %@完成";
+"✗ %@ failed" = "✗ %@失败";
+"✗ %@: %@" = "✗ %@：%@";
+"Bundled resource %@-%@ is missing" = "找不到内置资源 %@-%@";
+"Staging failed: %@" = "暂存失败：%@";
+"Read failed (rc=%@)" = "读取失败（rc=%@）";
+
+/* MARK: - Shortcuts actions */
+"The device returned nothing" = "设备没有返回内容";
+"Announcement action" = "提示音操作";
+"Action" = "操作";
+"%@ for call recording" = "通话录音：%@";
+"Call-recording announcement" = "通话录音提示音";
+"Checks, silences, or restores the announcement iOS plays into a recorded call. Needs a pairing file and the LocalDevVPN loopback tunnel." = "检测、去除或恢复 iOS 在通话录音时播放的提示音。需要配对文件和 LocalDevVPN 回环隧道。";
+"Silence the call-recording announcements" = "去除通话录音提示音";
+"Replaces the recording start/stop announcements with silent files." = "把录音开始/结束的提示音换成静音文件。";
+"Restore the call-recording announcements" = "恢复通话录音提示音";
+"Restores the original recording start/stop announcements." = "恢复苹果原本的录音开始/结束提示音。";
+"Silence announcements" = "去除提示音";
+"Restore announcements" = "恢复提示音";

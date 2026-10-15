@@ -1,0 +1,4 @@
+/* AirliftSilence — Simplified Chinese Info.plist strings. */
+"NSLocalNetworkUsageDescription" = "这个 App 需要局域网权限：它会临时广播一个配对服务，让这台 iPhone 与自己配对，然后通过回环隧道连接本机的服务，替换掉提示音文件。";
+"CFBundleDisplayName" = "AirliftSilence";
+"CFBundleName" = "AirliftSilence";

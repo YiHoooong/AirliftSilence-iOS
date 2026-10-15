@@ -44,9 +44,9 @@ final class PairingController: ObservableObject {
 
         var errorDescription: String? {
             switch self {
-            case .busy: return "Pairing is already in progress."
-            case .localNetworkDenied: return "Local Network permission is off. Enable it in Settings › \(AppIdentity.name) › Local Network."
-            case .zeroBytes: return "Pairing produced an empty file. Approve the pairing request, then try again."
+            case .busy: return String(localized: "Pairing is already in progress.")
+            case .localNetworkDenied: return String(localized: "Local Network permission is off. Enable it in Settings › \(AppIdentity.name) › Local Network.")
+            case .zeroBytes: return String(localized: "Pairing produced an empty file. Approve the pairing request, then try again.")
             case let .failed(msg): return msg
             }
         }
@@ -124,7 +124,7 @@ final class PairingController: ObservableObject {
         keepAlive.stopAll()
         running = false
         pairingPIN = nil
-        pairingStatus = "Cancelled"
+        pairingStatus = String(localized: "Cancelled")
         PinNotifier.clear()
         resolve(.failure(CancellationError()))
     }
@@ -141,14 +141,14 @@ final class PairingController: ObservableObject {
         running = true
         pairingPIN = nil
         PinNotifier.clear()
-        pairingStatus = "Starting local host…"
+        pairingStatus = String(localized: "Starting local host…")
 
         Task {
             _ = await localNetwork.request()
             guard running else { return }
 
             keepAlive.startAudio()
-            pairingStatus = "Broadcasting… open Settings to pair"
+            pairingStatus = String(localized: "Broadcasting… open Settings to pair")
             runHost()
         }
     }
@@ -193,7 +193,7 @@ final class PairingController: ObservableObject {
                 )
             } else {
                 let msg = cStr(result.error)
-                outcome = .failure(msg.isEmpty ? "pairing failed (rc=\(rc))" : msg)
+                outcome = .failure(msg.isEmpty ? String(localized: "pairing failed (rc=\(String(describing: rc)))") : msg)
             }
             al_pairing_result_free(&result)
 
@@ -224,14 +224,14 @@ final class PairingController: ObservableObject {
             let canonical = Self.syncCanonicalPairingFile(from: path)
             let size = (try? FileManager.default.attributesOfItem(atPath: canonical)[.size] as? Int) ?? 0
             if size == 0 {
-                pairingStatus = "Failed: empty pairing file"
+                pairingStatus = String(localized: "Failed: empty pairing file")
                 resolve(.failure(PairingError.zeroBytes))
             } else {
-                pairingStatus = "Paired: \(name) (\(size)B)"
+                pairingStatus = String(localized: "Paired: \(name) (\(size.formatted()) B)")
                 resolve(.success(canonical))
             }
         case let .failure(message):
-            pairingStatus = "Failed: \(message)"
+            pairingStatus = String(localized: "Failed: \(message)")
             resolve(.failure(PairingError.failed(message)))
         }
     }
@@ -250,12 +250,12 @@ final class PairingController: ObservableObject {
         service.setTXTRecord(NetService.data(fromTXTRecord: txt))
         service.publish()
         netService = service
-        pairingStatus = "Advertising — open Settings › Privacy & Security › Developer Mode"
+        pairingStatus = String(localized: "Advertising — open Settings › Privacy & Security › Developer Mode")
     }
 
     fileprivate func presentPin(_ pin: String) {
         pairingPIN = pin
-        pairingStatus = "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with \(AppIdentity.name)"
+        pairingStatus = String(localized: "Enter PIN \(pin) in Settings › Privacy & Security › Developer Mode › Pair with \(AppIdentity.name)")
         // The user is inside Settings at this point, so surface the code there too.
         PinNotifier.post(pin: pin)
     }

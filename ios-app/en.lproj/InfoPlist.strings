@@ -1,0 +1,4 @@
+/* AirliftSilence — English Info.plist strings (development language). */
+"NSLocalNetworkUsageDescription" = "This app needs Local Network access: it advertises a pairing service so this iPhone can pair with itself, then talks to the device's own services over a loopback tunnel to replace the announcement files.";
+"CFBundleDisplayName" = "AirliftSilence";
+"CFBundleName" = "AirliftSilence";

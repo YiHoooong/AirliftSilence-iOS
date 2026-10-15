@@ -3,7 +3,9 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @StateObject private var vm = SilenceViewModel()
+    /// The shared instance, not a fresh one: a Shortcut run and this screen
+    /// have to show the same status.
+    @ObservedObject private var vm = SilenceViewModel.shared
     @ObservedObject private var pairing = PairingController.shared
     @State private var showLog = false
     @State private var showImporter = false
@@ -31,10 +33,23 @@ struct ContentView: View {
         let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
         vm.refreshPairingState()
         if vm.pairingReady {
-            vm.log.append("已导入配对文件：\((adopted as NSString).lastPathComponent)")
+            vm.log.append(String(localized: "Imported pairing file: \((adopted as NSString).lastPathComponent)"))
         } else {
-            vm.log.append("该文件读不出内容，可能不是有效的配对记录：\(url.lastPathComponent)")
+            vm.log.append(String(localized: "That file has no readable content, so it is probably not a pairing record: \(url.lastPathComponent)"))
         }
+    }
+
+    /// `airliftsilence://check`, `airliftsilence://silence`,
+    /// `airliftsilence://restore` — for a Shortcut the user writes by hand, or
+    /// any other launcher that can only open a URL.
+    private func handle(_ url: URL) {
+        guard url.scheme == SilenceEngine.urlScheme else { return }
+        let name = (url.host ?? url.path.replacingOccurrences(of: "/", with: "")).lowercased()
+        guard let action = SilenceAction(rawValue: name) else {
+            vm.log.append(String(localized: "Unknown action in URL: \(url.absoluteString)"))
+            return
+        }
+        vm.request(action)
     }
 
     var body: some View {
@@ -57,8 +72,11 @@ struct ContentView: View {
             // that this app opens plists, so adopt one when it is handed to us
             // ("Open in AirliftSilence") instead of silently doing nothing.
             .onOpenURL { url in
-                guard url.isFileURL else { return }
-                adopt(url)
+                if url.isFileURL {
+                    adopt(url)
+                } else {
+                    handle(url)
+                }
             }
         }
     }
@@ -79,7 +97,7 @@ struct ContentView: View {
                 }
                 .font(.subheadline)
             } else {
-                Text("iOS 会把录音开始/结束时的提示音播给通话双方")
+                Text("iOS plays a tone into the call when recording starts and stops")
                     .font(.footnote)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)
@@ -121,7 +139,7 @@ struct ContentView: View {
             Button {
                 vm.silence()
             } label: {
-                Label("去除提示音", systemImage: "speaker.slash.fill")
+                Label("Silence the announcements", systemImage: "speaker.slash.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
@@ -131,7 +149,7 @@ struct ContentView: View {
                 Button {
                     vm.check()
                 } label: {
-                    Label("检测", systemImage: "magnifyingglass")
+                    Label("Check", systemImage: "magnifyingglass")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -140,7 +158,7 @@ struct ContentView: View {
                 Button {
                     vm.restore()
                 } label: {
-                    Label("恢复原版", systemImage: "arrow.uturn.backward")
+                    Label("Restore the originals", systemImage: "arrow.uturn.backward")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -158,47 +176,51 @@ struct ContentView: View {
             HStack {
                 Image(systemName: vm.pairingReady ? "checkmark.seal.fill" : "person.badge.key")
                     .foregroundColor(vm.pairingReady ? .green : .orange)
-                Text(vm.pairingReady ? "配对文件已就绪" : "需要先配对")
+                // LocalizedStringKey explicitly: a ternary of two literals can
+                // otherwise bind to the non-localizing Text(String) overload.
+                Text(LocalizedStringKey(vm.pairingReady ? "Pairing file ready" : "Pairing required"))
                     .font(.subheadline.weight(.medium))
                 Spacer()
             }
 
-            Text(vm.pairingReady
-                 ? "已找到配对文件，可以执行操作。"
-                 : "本机跑这个漏洞需要一份配对文件。可以点下面按钮让手机给自己配对，或者把现成的配对文件分享进来。")
+            Text(LocalizedStringKey(vm.pairingReady
+                 ? "A pairing file was found, so every action is available."
+                 : "The exploit needs a pairing file. Pair this iPhone with itself below, or share an existing pairing file into this app."))
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             if let pin = pairing.pairingPIN {
-                Text("PIN：\(pin)")
+                Text("PIN: \(pin)")
                     .font(.system(.title3, design: .monospaced).weight(.bold))
                     .foregroundColor(.blue)
-                Text("到 设置 › 隐私与安全性 › 开发者模式 › 与 App 配对，输入上面的 PIN")
+                Text("Type it in Settings › Privacy & Security › Developer Mode › Pair with App")
                     .font(.caption2)
                     .foregroundColor(.secondary)
             } else if pairing.running {
-                Text("配对中…\(pairing.pairingStatus)")
+                Text("Pairing… \(pairing.pairingStatus)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
             HStack(spacing: 10) {
-                Button(pairing.running ? "取消" : "开始配对") {
+                Button {
                     if pairing.running {
                         pairing.softCancel()
                     } else {
                         Task { await runPairing() }
                     }
+                } label: {
+                    Text(LocalizedStringKey(pairing.running ? "Cancel" : "Start pairing"))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.regular)
 
-                Button("重新检查") { vm.refreshPairingState() }
+                Button("Re-check") { vm.refreshPairingState() }
                     .buttonStyle(.bordered)
                     .controlSize(.regular)
 
                 if LocalDevVPN.isInstalled {
-                    Button("打开 LocalDevVPN") { LocalDevVPN.open() }
+                    Button("Open LocalDevVPN") { LocalDevVPN.open() }
                         .buttonStyle(.bordered)
                         .controlSize(.regular)
                 }
@@ -212,7 +234,7 @@ struct ContentView: View {
                 Button {
                     showImporter = true
                 } label: {
-                    Label("导入配对文件", systemImage: "square.and.arrow.down")
+                    Label("Import pairing file", systemImage: "square.and.arrow.down")
                         .font(.subheadline)
                         .frame(maxWidth: .infinity)
                 }
@@ -223,7 +245,7 @@ struct ContentView: View {
                 // fresh container — so hand the user a way to get a copy out.
                 if let url = vm.pairingFileURL {
                     ShareLink(item: url) {
-                        Label("导出配对文件", systemImage: "square.and.arrow.up")
+                        Label("Export pairing file", systemImage: "square.and.arrow.up")
                             .font(.subheadline)
                             .frame(maxWidth: .infinity)
                     }
@@ -241,7 +263,7 @@ struct ContentView: View {
             case .success(let urls):
                 if let url = urls.first { adopt(url) }
             case .failure(let error):
-                vm.log.append("导入失败：\(error.localizedDescription)")
+                vm.log.append(String(localized: "Import failed: \(error.localizedDescription)"))
             }
         }
         .padding(12)
@@ -253,10 +275,10 @@ struct ContentView: View {
         do {
             let path = try await PairingController.shared.startAndWait()
             vm.refreshPairingState()
-            vm.log.append("✅ 配对完成：\(path)")
+            vm.log.append(String(localized: "✅ Paired: \(path)"))
             vm.check()
         } catch {
-            vm.log.append("✗ 配对失败：\(error.localizedDescription)")
+            vm.log.append(String(localized: "✗ Pairing failed: \(error.localizedDescription)"))
             vm.refreshPairingState()
         }
     }
@@ -265,7 +287,7 @@ struct ContentView: View {
 
     private var tunnelCard: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("回环隧道地址")
+            Text("Loopback tunnel address")
                 .font(.subheadline.weight(.medium))
             TextField("10.7.0.1", text: $vm.deviceIP)
                 .textFieldStyle(.roundedBorder)
@@ -273,10 +295,10 @@ struct ContentView: View {
                 .autocapitalization(.none)
                 .disableAutocorrection(true)
                 .onSubmit { vm.saveDeviceIP() }
-            Text("需要开着 LocalDevVPN（回环模式）。默认 10.7.0.1，连不上可以试 10.7.0.2 / 10.7.0.3。")
+            Text("LocalDevVPN has to be running in loopback mode. 10.7.0.1 by default; try 10.7.0.2 or 10.7.0.3 if it will not connect.")
                 .font(.caption2)
                 .foregroundColor(.secondary)
-            Text("⚠️ 不要填 127.0.0.1：会让 remotepairingdeviced 拒绝控制通道并进入丢弃状态，之后所有连接都会失败，只能靠关掉再打开开发者模式恢复。")
+            Text("⚠️ Never enter 127.0.0.1: remotepairingdeviced refuses the control channel and drops into a state where every connection fails, until you toggle Developer Mode off and on again.")
                 .font(.caption2)
                 .foregroundColor(.orange)
         }
@@ -294,9 +316,9 @@ struct ContentView: View {
             } label: {
                 HStack {
                     Image(systemName: "text.alignleft")
-                    Text("运行日志")
+                    Text("Run log")
                     Spacer()
-                    Text(showLog ? "收起" : "展开")
+                    Text(LocalizedStringKey(showLog ? "Hide" : "Show"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

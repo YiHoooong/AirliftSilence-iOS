@@ -1,0 +1,82 @@
+/* AirliftSilence — English (development language).
+   The keys are the exact strings that appear in the Swift sources;
+   tools/check-strings.py verifies that, and that this file and
+   zh-Hans.lproj/Localizable.strings hold the same keys.
+   This file is UTF-8. */
+
+/* MARK: - Status and actions */
+"Not checked" = "Not checked";
+"Silenced" = "Silenced";
+"Original (audible)" = "Original (audible)";
+"Partly silenced" = "Partly silenced";
+"iOS plays a tone into the call when recording starts and stops" = "iOS plays a tone into the call when recording starts and stops";
+"Check" = "Check";
+"Silence the announcements" = "Silence the announcements";
+"Restore the originals" = "Restore the originals";
+/* MARK: - Pairing card */
+"Pairing file ready" = "Pairing file ready";
+"Pairing required" = "Pairing required";
+"A pairing file was found, so every action is available." = "A pairing file was found, so every action is available.";
+"The exploit needs a pairing file. Pair this iPhone with itself below, or share an existing pairing file into this app." = "The exploit needs a pairing file. Pair this iPhone with itself below, or share an existing pairing file into this app.";
+"PIN: %@" = "PIN: %@";
+"Type it in Settings › Privacy & Security › Developer Mode › Pair with App" = "Type it in Settings › Privacy & Security › Developer Mode › Pair with App";
+"Pairing… %@" = "Pairing… %@";
+"Cancel" = "Cancel";
+"Start pairing" = "Start pairing";
+"Re-check" = "Re-check";
+"Open LocalDevVPN" = "Open LocalDevVPN";
+"Import pairing file" = "Import pairing file";
+"Export pairing file" = "Export pairing file";
+"Import failed: %@" = "Import failed: %@";
+"Imported pairing file: %@" = "Imported pairing file: %@";
+"That file has no readable content, so it is probably not a pairing record: %@" = "That file has no readable content, so it is probably not a pairing record: %@";
+"✅ Paired: %@" = "✅ Paired: %@";
+"✗ Pairing failed: %@" = "✗ Pairing failed: %@";
+"Unknown action in URL: %@" = "Unknown action in URL: %@";
+/* MARK: - Pairing status */
+"Cancelled" = "Cancelled";
+"Starting local host…" = "Starting local host…";
+"Broadcasting… open Settings to pair" = "Broadcasting… open Settings to pair";
+"Advertising — open Settings › Privacy & Security › Developer Mode" = "Advertising — open Settings › Privacy & Security › Developer Mode";
+"Enter PIN %@ in Settings › Privacy & Security › Developer Mode › Pair with %@" = "Enter PIN %@ in Settings › Privacy & Security › Developer Mode › Pair with %@";
+"Paired: %@ (%@ B)" = "Paired: %@ (%@ B)";
+"Failed: %@" = "Failed: %@";
+"Failed: empty pairing file" = "Failed: empty pairing file";
+"pairing failed (rc=%@)" = "pairing failed (rc=%@)";
+"Pairing is already in progress." = "Pairing is already in progress.";
+"Local Network permission is off. Enable it in Settings › %@ › Local Network." = "Local Network permission is off. Enable it in Settings › %@ › Local Network.";
+"Pairing produced an empty file. Approve the pairing request, then try again." = "Pairing produced an empty file. Approve the pairing request, then try again.";
+/* MARK: - Tunnel card */
+"Pairing code  %@" = "Pairing code  %@";
+"Loopback tunnel address" = "Loopback tunnel address";
+"LocalDevVPN has to be running in loopback mode. 10.7.0.1 by default; try 10.7.0.2 or 10.7.0.3 if it will not connect." = "LocalDevVPN has to be running in loopback mode. 10.7.0.1 by default; try 10.7.0.2 or 10.7.0.3 if it will not connect.";
+/* MARK: - Run log and check detail */
+"⚠️ Never enter 127.0.0.1: remotepairingdeviced refuses the control channel and drops into a state where every connection fails, until you toggle Developer Mode off and on again." = "⚠️ Never enter 127.0.0.1: remotepairingdeviced refuses the control channel and drops into a state where every connection fails, until you toggle Developer Mode off and on again.";
+"Run log" = "Run log";
+"Show" = "Show";
+"Hide" = "Hide";
+"%@ — %@ · %@ bytes · %@…" = "%@ — %@ · %@ bytes · %@…";
+"silenced" = "silenced";
+"original" = "original";
+"unknown build" = "unknown build";
+"Result: %@" = "Result: %@";
+"Call-recording announcements: %@" = "Call-recording announcements: %@";
+"✅ %@ finished" = "✅ %@ finished";
+"✗ %@ failed" = "✗ %@ failed";
+"✗ %@: %@" = "✗ %@: %@";
+"Bundled resource %@-%@ is missing" = "Bundled resource %@-%@ is missing";
+"Staging failed: %@" = "Staging failed: %@";
+"Read failed (rc=%@)" = "Read failed (rc=%@)";
+/* MARK: - Shortcuts actions */
+"The device returned nothing" = "The device returned nothing";
+"Announcement action" = "Announcement action";
+"Action" = "Action";
+"%@ for call recording" = "%@ for call recording";
+"Call-recording announcement" = "Call-recording announcement";
+"Checks, silences, or restores the announcement iOS plays into a recorded call. Needs a pairing file and the LocalDevVPN loopback tunnel." = "Checks, silences, or restores the announcement iOS plays into a recorded call. Needs a pairing file and the LocalDevVPN loopback tunnel.";
+"Silence the call-recording announcements" = "Silence the call-recording announcements";
+"Replaces the recording start/stop announcements with silent files." = "Replaces the recording start/stop announcements with silent files.";
+"Restore the call-recording announcements" = "Restore the call-recording announcements";
+"Restores the original recording start/stop announcements." = "Restores the original recording start/stop announcements.";
+"Silence announcements" = "Silence announcements";
+"Restore announcements" = "Restore announcements";

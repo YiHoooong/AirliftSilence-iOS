@@ -8,6 +8,7 @@ on:
       - "rust-core/**"
       - "ios-app/**"
       - "project.yml"
+      - "tools/**"
       - "build-ios.sh"
       - "build-ipa.sh"
       - ".github/workflows/build-ios.yml"
@@ -35,6 +36,9 @@ jobs:
           sudo xcode-select -s "$latest"
           echo "DEVELOPER_DIR=$latest/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
+
+      - name: Check the localisation files
+        run: python3 tools/check-strings.py
 
       - name: Install xcodegen
         run: brew install xcodegen

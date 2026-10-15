@@ -24,6 +24,28 @@
 	<array>
 		<string>localdevvpn</string>
 	</array>
+	<!-- Lets a hand-written Shortcut (or any launcher) drive the app with an
+	     "Open URLs" action: airliftsilence://check, ://silence, ://restore.
+	     Must stay in sync with SilenceEngine.urlScheme. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>airliftsilence</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Development language is English; Chinese ships as zh-Hans.lproj. -->
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+	</array>
 	<!-- Local Network: RPPairing host + loopback tunnel.
 	     _airliftsilence._tcp must stay in sync with Utilities.swift. -->
 	<key>NSBonjourServices</key>
@@ -31,8 +53,10 @@
 		<string>_remotepairing-pairable-host._tcp</string>
 		<string>_airliftsilence._tcp</string>
 	</array>
+	<!-- English is the development language; zh-Hans.lproj/InfoPlist.strings
+	     carries the Chinese wording. -->
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>本 App 需要局域网权限：它会临时广播一个配对服务，让这台 iPhone 与自己配对，并通过回环隧道连接本机的服务来写入提示音文件。</string>
+	<string>This app needs Local Network access: it advertises a pairing service so this iPhone can pair with itself, then talks to the device's own services over a loopback tunnel to replace the announcement files.</string>
 	<!-- Background audio keeps the app alive while the pairing PIN is approved in Settings. -->
 	<key>UIBackgroundModes</key>
 	<array>

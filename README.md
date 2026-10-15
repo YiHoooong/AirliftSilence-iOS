@@ -4,16 +4,19 @@ On-device switch for the iPhone call-recording announcement — no computer need
 
 A minimal SwiftUI app built on the same AirTraffic sandbox escape as
 [AirCard-iOS](https://github.com/Mak5er/AirCard-iOS). It talks to the phone's own internal
-services over a `LocalDevVPN` loopback tunnel and swaps the two audio files iOS plays when call
+services over a `LocalDevVPN` loopback tunnel and swaps the three audio files iOS plays when call
 recording starts and stops.
 
-Three actions:
+Three actions, available on screen and from Shortcuts:
 
-| Button | What it does |
+| Action | What it does |
 |---|---|
-| **去除提示音** | writes the bundled silent files over both announcement files |
-| **检测** | reads both files back and reports 静音 / 原版 / 未知版本 |
-| **恢复原版** | writes the bundled originals back |
+| **Silence the announcements** | writes the bundled silent files over the three announcement files |
+| **Check** | reads them back and reports silenced / original / unknown build |
+| **Restore the originals** | writes the bundled originals back |
+
+The interface is English by default, with a Simplified Chinese translation — see
+[Languages](#languages).
 
 ## Why detection needs a Rust change
 
@@ -42,7 +45,7 @@ The original write path is untouched on purpose.
   drop state where every later connection fails, recoverable only by toggling Developer Mode off
   and on.
 - A pairing record. Either import one (AirDrop / Files → the app's Documents, as
-  `airlift_pairing.plist`), or use the built-in on-device pairing: **开始配对** → note the PIN →
+  `airlift_pairing.plist`), or use the built-in on-device pairing: **Start pairing** → note the PIN →
   Settings › Privacy & Security › Developer Mode › **Pair with AirliftSilence**.
   Allow notifications when asked: the PIN is also delivered as a notification, because the moment it
   appears you are inside Settings typing it and the app's own screen is out of sight.
@@ -51,13 +54,13 @@ The original write path is untouched on purpose.
 
 ### Moving the pairing record around
 
-Once a record exists, **导出配对文件** hands it to the share sheet — AirDrop, Save to Files, and so
-on. Worth doing: re-signing a sideloaded build gives it a fresh container, so the record does not
+Once a record exists, **Export pairing file** hands it to the share sheet — AirDrop, Save to Files,
+and so on. Worth doing: re-signing a sideloaded build gives it a fresh container, so the record does not
 survive a reinstall.
 
 Getting one back in has three routes, in rough order of reliability:
 
-1. **导入配对文件** — an in-app file picker. Works with the `.plist`,
+1. **Import pairing file** — an in-app file picker. Works with the `.plist`,
    `.mobiledevicepairing` and `.mobilepairing` names the various sideloaders use.
 2. Drop the file into the app's Documents folder (file sharing is on), named
    `airlift_pairing.plist`.
@@ -91,17 +94,21 @@ SideStore, Sideloadly, TrollStore, …).
 
 ## What it touches
 
-Both files live in the same directory, so one write covers both:
+All three recordings live in one directory, so a single write covers them:
 
 ```
 /var/mobile/Library/CallServices/Greetings/default/StartDisclosureWithTone.m4a
 /var/mobile/Library/CallServices/Greetings/default/StopDisclosure.caf
+/var/mobile/Library/CallServices/Greetings/default/StartDisclosure.caf
 ```
 
 The bundled `silent-*` files are plain `ffmpeg anullsrc` silence, matched to the duration and codec
-of the versions shipping today (AAC 1.672 s, Opus 1.920 s), so playback timing is unchanged.
+of the versions shipping today (AAC 1.672 s, Opus 1.940 s, Opus 1.280 s), so playback timing is
+unchanged. `Greeting.caf` and `GreetingWithTone.m4a` sit in the same folder and are deliberately
+left alone — those are voicemail greetings, not recording announcements.
 
-The `original-*` files hold Apple's current recordings so **恢复原版** has something to put back.
+The `original-*` files hold Apple's current recordings so **Restore the originals** has something to
+put back.
 Those two are Apple's audio, bundled for your own device only — don't redistribute this repository
 with them if that matters to you.
 
@@ -109,12 +116,72 @@ Both sets sit in one folder with a `silent-` / `original-` prefix, because Xcode
 directory contents into the bundle root and the two files share a name; the staging step copies each
 one to its real filename before it is written to the device.
 
+## Shortcuts and Siri
+
+The app ships three `AppIntent`s, so it shows up in the Shortcuts app as an action of its own:
+
+| Shortcut action | Notes |
+|---|---|
+| *Call-recording announcement* | one step with an **Action** menu: Check / Silence / Restore |
+| *Silence the call-recording announcements* | no parameters — the one to put on the Home Screen |
+| *Restore the call-recording announcements* | no parameters |
+
+Each one returns the outcome as text (`Call-recording announcements: Silenced`, …) so a Shortcut can
+branch on it or show it in a notification. Shortcuts are queued in the app: a run that arrives while
+the on-screen check is still going waits for it, because the device only tolerates one session at a
+time.
+
+The intents open the app when they run. That is deliberate — a run is a long device-side session and
+an iOS background intent gets cut off after a few seconds, which would tear the tunnel down
+mid-transfer. Siri phrases are provided in both languages, e.g. *"AirliftSilence 去掉通话录音提示音"*.
+
+The app also answers a URL scheme, for anything that can only open a URL (an *Open URLs* action, a
+launcher, a bookmark):
+
+```
+airliftsilence://check
+airliftsilence://silence
+airliftsilence://restore
+```
+
+## Languages
+
+English is the development language; Simplified Chinese ships as `zh-Hans`. Strings are **not** in a
+String Catalog — the `.strings` files are hand-written and the keys are the English strings exactly
+as they appear in the Swift sources:
+
+```
+ios-app/en.lproj/Localizable.strings        # English (development language)
+ios-app/zh-Hans.lproj/Localizable.strings   # Simplified Chinese
+ios-app/{en,zh-Hans}.lproj/InfoPlist.strings # the Local Network permission prompt
+```
+
+To add a language: copy `en.lproj` to `<language>.lproj`, translate the values (keep the keys and
+their `%@` placeholders in the same order), add the language to `CFBundleLocalizations` in
+`Info.plist`, and re-run `xcodegen generate`. `en.lproj` has to stay in place: XcodeGen only creates
+localisation variant groups when it finds the development-language folder.
+
+Nothing may drift silently:
+
+```sh
+python3 tools/check-strings.py   # also runs in CI
+```
+
+It checks that every key still exists in the sources (after normalising `\(..)` to `%@`), that `en`
+and `zh-Hans` hold the same keys in the same order with matching placeholder counts, that
+`InfoPlist.strings` only overrides keys the plist defines, and reports any source string that looks
+like UI text but has no translation.
+
 ## Known limits
 
 - **Apple updates these files as a silent `MobileAsset` update** — no iOS version change, no
   notification. When that happens your silence is overwritten and the sound comes back. Reopen the
   app and press **去除提示音**. It has happened once so far; it is not a boot-time check, so
   rebooting is safe.
+- The periodic **"ding ding ding"** reminder during a long recording is
+  `recurringDisclosureTwinkle.caf` inside `TelephonyUtilities.framework` on the sealed system volume.
+  This exploit cannot replace a sealed-volume file, so that one stays. Only the start/stop
+  announcements are silenceable from the app.
 - A reboot does **not** undo it. Verified by byte-comparing both files before and after a restart.
 - The announcement plays to **both parties** on the call. Removing it may be unlawful where
   recording requires all-party consent (Germany, several US states). Get consent before recording
