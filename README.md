@@ -178,10 +178,12 @@ like UI text but has no translation.
 
 ## Known limits
 
-- **Apple updates these files as a silent `MobileAsset` update** — no iOS version change, no
-  notification. When that happens your silence is overwritten and the sound comes back. Reopen the
-  app and press **去除提示音**. It has happened once so far; it is not a boot-time check, so
-  rebooting is safe.
+- **The announcements are generated on the device by Siri TTS, and iOS regenerates them when the
+  voice or the disclosure configuration changes** — no iOS version change, no notification. Then your
+  silence is overwritten and the sound comes back; press **Silence the announcements** again. A
+  language change is enough to trigger it, and it is not a boot-time check, so rebooting is safe.
+  [`docs/static-analysis.md`](docs/static-analysis.md) has the evidence and the ways this could still
+  be worked around.
 - The periodic **"ding ding ding"** reminder during a long recording is
   `recurringDisclosureTwinkle.caf` inside `TelephonyUtilities.framework` on the sealed system volume.
   This exploit cannot replace a sealed-volume file, so that one stays. Only the start/stop
