@@ -48,7 +48,9 @@ The original write path is untouched on purpose.
   `airlift_pairing.plist`), or use the built-in on-device pairing: **Start pairing** → note the PIN →
   Settings › Privacy & Security › Developer Mode › **Pair with AirliftSilence**.
   Allow notifications when asked: the PIN is also delivered as a notification, because the moment it
-  appears you are inside Settings typing it and the app's own screen is out of sight.
+  appears you are inside Settings typing it and the app's own screen is out of sight. If Settings
+  never offers a **Pair with App** entry, the broadcast never started: check Settings ›
+  AirliftSilence › Local Network. The app reports that instead of claiming to advertise.
 - The official Apple Books app installed and opened at least once — `com.apple.atc` refuses the
   sync otherwise, which is the #1 cause of "ReadyForSync not observed".
 
@@ -64,7 +66,9 @@ Getting one back in has three routes, in rough order of reliability:
    `.mobiledevicepairing` and `.mobilepairing` names the various sideloaders use.
 2. Drop the file into the app's Documents folder (file sharing is on), named
    `airlift_pairing.plist`.
-3. Open a `.plist` with *AirliftSilence* from the share sheet (`Open in AirliftSilence`).
+3. Open a `.plist` with *AirliftSilence* from the share sheet (`Open in AirliftSilence`) — this
+   goes through the app delegate, so it works even when the app is not running. Files with an
+   undeclared extension (`.mobiledevicepairing`, `.mobilepairing`) are offered too.
 
 ## Build
 

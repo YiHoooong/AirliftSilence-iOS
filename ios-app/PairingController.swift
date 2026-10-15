@@ -5,7 +5,7 @@ import AirliftFFI
 /// the user approves the PIN in Settings, advertises the service over Bonjour,
 /// and runs `al_pairing_run_host` off the main thread.
 @MainActor
-final class PairingController: ObservableObject {
+final class PairingController: NSObject, ObservableObject, NetServiceDelegate {
 
     static let shared = PairingController()
 
@@ -247,10 +247,31 @@ final class PairingController: ObservableObject {
             name: serviceID,
             port: port
         )
+        service.delegate = self
         service.setTXTRecord(NetService.data(fromTXTRecord: txt))
+        // The status is set by the delegate methods below rather than here:
+        // publishing fails silently when the Local Network permission is off,
+        // and then Settings never offers the "Pair with App" entry. Saying
+        // "Advertising" in that case sends the user hunting for a setting that
+        // will never show up.
+        pairingStatus = String(localized: "Waiting for the system to publish the pairing service…")
         service.publish()
         netService = service
-        pairingStatus = String(localized: "Advertising — open Settings › Privacy & Security › Developer Mode")
+    }
+
+    // MARK: - NetServiceDelegate
+
+    nonisolated func netServiceDidPublish(_ sender: NetService) {
+        DispatchQueue.main.async { [weak self] in
+            self?.pairingStatus = String(localized: "Advertising — open Settings › Privacy & Security › Developer Mode")
+        }
+    }
+
+    nonisolated func netService(_ sender: NetService, didNotPublish errorDict: [String: NSNumber]) {
+        let code = errorDict[NetService.errorCode]?.intValue ?? 0
+        DispatchQueue.main.async { [weak self] in
+            self?.pairingStatus = String(localized: "Broadcast failed (code \(String(describing: code))). Check Settings › \(AppIdentity.name) › Local Network, then try again.")
+        }
     }
 
     fileprivate func presentPin(_ pin: String) {

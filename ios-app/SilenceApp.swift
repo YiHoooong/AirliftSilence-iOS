@@ -1,8 +1,32 @@
 import SwiftUI
+import UIKit
 import AirliftFFI
+
+/// SwiftUI's `onOpenURL` does not deliver a document that another app opens
+/// with while this app is still cold-starting — which is the normal case for a
+/// sideloaded app that is not already running, and why the share-sheet route
+/// ("Open in AirliftSilence") used to do nothing at all. The app delegate is
+/// the entry point that does fire on a cold launch, so document opens go
+/// through here; the URL scheme keeps using `onOpenURL` in ContentView.
+final class AppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     open url: URL,
+                     options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        guard url.isFileURL else { return false }
+        // Delegate callbacks arrive on the main thread; stated explicitly
+        // because the view model is main-actor isolated.
+        MainActor.assumeIsolated {
+            SilenceViewModel.shared.adoptPairingFile(at: url)
+        }
+        return true
+    }
+}
 
 @main
 struct AirliftSilenceApp: App {
+
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         // Route Rust tracing logs into the same sink the UI drains.
         al_log_init({ _, msg in

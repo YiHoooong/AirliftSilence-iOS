@@ -23,22 +23,6 @@ struct ContentView: View {
         return types
     }()
 
-    /// Adopt a pairing file the user handed us, whether it came from the
-    /// document picker or from "Open in AirliftSilence". A URL from outside the
-    /// sandbox needs security-scoped access before it can be read.
-    private func adopt(_ url: URL) {
-        let scoped = url.startAccessingSecurityScopedResource()
-        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-
-        let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
-        vm.refreshPairingState()
-        if vm.pairingReady {
-            vm.log.append(String(localized: "Imported pairing file: \((adopted as NSString).lastPathComponent)"))
-        } else {
-            vm.log.append(String(localized: "That file has no readable content, so it is probably not a pairing record: \(url.lastPathComponent)"))
-        }
-    }
-
     /// `airliftsilence://check`, `airliftsilence://silence`,
     /// `airliftsilence://restore` — for a Shortcut the user writes by hand, or
     /// any other launcher that can only open a URL.
@@ -71,9 +55,11 @@ struct ContentView: View {
             // Counterpart to the export button: Info.plist already advertises
             // that this app opens plists, so adopt one when it is handed to us
             // ("Open in AirliftSilence") instead of silently doing nothing.
+            // File URLs also arrive through AppDelegate.application(_:open:),
+            // which is the only entry point that fires on a cold launch.
             .onOpenURL { url in
                 if url.isFileURL {
-                    adopt(url)
+                    vm.adoptPairingFile(at: url)
                 } else {
                     handle(url)
                 }
@@ -261,7 +247,7 @@ struct ContentView: View {
         ) { result in
             switch result {
             case .success(let urls):
-                if let url = urls.first { adopt(url) }
+                if let url = urls.first { vm.adoptPairingFile(at: url) }
             case .failure(let error):
                 vm.log.append(String(localized: "Import failed: \(error.localizedDescription)"))
             }

@@ -67,6 +67,9 @@ final class SilenceViewModel: ObservableObject {
     @Published var pairingFileURL: URL?
 
     private var drainTimer: Timer?
+    /// The last URL handed to `adoptPairingFile`, so a share-sheet open that is
+    /// delivered twice (app delegate + SwiftUI's onOpenURL) only imports once.
+    private var lastAdoption: (path: String, at: Date)?
     /// The tail of the run queue. A Shortcut and the view's automatic check can
     /// arrive at the same moment.
     private var chain: Task<SilenceOutcome, Never>?
@@ -91,6 +94,34 @@ final class SilenceViewModel: ObservableObject {
 
     func saveDeviceIP() {
         SilenceEngine.storedTargetHost = deviceIP
+    }
+
+    // MARK: pairing file
+
+    /// Adopt a pairing file handed to us from outside the app: the document
+    /// picker, the share sheet, or another app's "Open in AirliftSilence". A URL
+    /// from outside the sandbox needs security-scoped access before it can be
+    /// read, and it is only reachable inside this call.
+    @discardableResult
+    func adoptPairingFile(at url: URL) -> Bool {
+        let now = Date()
+        if let last = lastAdoption, last.path == url.path,
+           now.timeIntervalSince(last.at) < 2 {
+            return pairingReady
+        }
+        lastAdoption = (url.path, now)
+
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+        let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
+        refreshPairingState()
+        if pairingReady {
+            append(String(localized: "Imported pairing file: \((adopted as NSString).lastPathComponent)"))
+        } else {
+            append(String(localized: "That file has no readable content, so it is probably not a pairing record: \(url.lastPathComponent)"))
+        }
+        return pairingReady
     }
 
     // MARK: runs

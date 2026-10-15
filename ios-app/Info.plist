@@ -85,6 +85,10 @@
 			<key>LSItemContentTypes</key>
 			<array>
 				<string>com.apple.property-list</string>
+				<!-- Pairing files from other sideloaders use extensions with no
+				     declared UTI, so they arrive as plain data. Without this the
+				     share sheet never offers this app for them. -->
+				<string>public.data</string>
 			</array>
 		</dict>
 	</array>

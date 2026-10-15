@@ -46,6 +46,8 @@
 "Pairing is already in progress." = "Pairing is already in progress.";
 "Local Network permission is off. Enable it in Settings › %@ › Local Network." = "Local Network permission is off. Enable it in Settings › %@ › Local Network.";
 "Pairing produced an empty file. Approve the pairing request, then try again." = "Pairing produced an empty file. Approve the pairing request, then try again.";
+"Waiting for the system to publish the pairing service…" = "Waiting for the system to publish the pairing service…";
+"Broadcast failed (code %@). Check Settings › %@ › Local Network, then try again." = "Broadcast failed (code %@). Check Settings › %@ › Local Network, then try again.";
 /* MARK: - Tunnel card */
 "Pairing code  %@" = "Pairing code  %@";
 "Loopback tunnel address" = "Loopback tunnel address";

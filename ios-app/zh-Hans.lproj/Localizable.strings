@@ -48,6 +48,8 @@
 "Pairing is already in progress." = "配对正在进行中。";
 "Local Network permission is off. Enable it in Settings › %@ › Local Network." = "「本地网络」权限被关掉了，请在 设置 › %@ › 本地网络 里打开。";
 "Pairing produced an empty file. Approve the pairing request, then try again." = "配对生成了一个空文件。请在设置里批准配对请求后重试。";
+"Waiting for the system to publish the pairing service…" = "等待系统发布配对服务…";
+"Broadcast failed (code %@). Check Settings › %@ › Local Network, then try again." = "广播失败（错误码 %@）。请检查 设置 › %@ › 本地网络 后重试。";
 
 /* MARK: - Tunnel card */
 "Pairing code  %@" = "配对码  %@";
