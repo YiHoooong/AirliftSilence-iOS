@@ -133,6 +133,8 @@ final class SilenceViewModel: ObservableObject {
     @Published var deviceIP = "10.7.0.1"
     @Published var pairingReady = false
     @Published var pairingName = ""
+    /// The pairing file on disk, for the share sheet. Nil until one exists.
+    @Published var pairingFileURL: URL?
 
     private var drainTimer: Timer?
     /// Resolved on the main actor before each job — `PairingController` is
@@ -148,7 +150,11 @@ final class SilenceViewModel: ObservableObject {
 
     func refreshPairingState() {
         let path = PairingController.pairingFilePath()
-        pairingReady = FileManager.default.fileExists(atPath: path)
+        // A zero-byte pairing file is what a failed pairing leaves behind, so
+        // treat it as "not ready" rather than offering it for export.
+        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int) ?? 0
+        pairingReady = size > 0
+        pairingFileURL = pairingReady ? URL(fileURLWithPath: path) : nil
         pairingName = AppIdentity.name
     }
 

@@ -22,6 +22,15 @@ struct ContentView: View {
             .navigationTitle(AppIdentity.name)
             .navigationBarTitleDisplayMode(.inline)
             .onAppear { vm.check() }
+            // Counterpart to the export button: Info.plist already advertises
+            // that this app opens plists, so adopt one when it is handed to us
+            // ("Open in AirliftSilence") instead of silently doing nothing.
+            .onOpenURL { url in
+                guard url.isFileURL else { return }
+                let adopted = PairingController.syncCanonicalPairingFile(from: url.path)
+                vm.refreshPairingState()
+                vm.log.append("已导入配对文件：\((adopted as NSString).lastPathComponent)")
+            }
         }
     }
 
@@ -164,6 +173,18 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.regular)
                 }
+            }
+
+            // Pairing records are easy to lose — a re-signed build gets a fresh
+            // container — so hand the user a way to get a copy out.
+            if let url = vm.pairingFileURL {
+                ShareLink(item: url) {
+                    Label("导出配对文件", systemImage: "square.and.arrow.up")
+                        .font(.subheadline)
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
             }
         }
         .padding(12)

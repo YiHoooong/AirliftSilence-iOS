@@ -49,6 +49,14 @@ The original write path is untouched on purpose.
 - The official Apple Books app installed and opened at least once — `com.apple.atc` refuses the
   sync otherwise, which is the #1 cause of "ReadyForSync not observed".
 
+### Moving the pairing record around
+
+Once a record exists, **导出配对文件** hands it to the share sheet — AirDrop, Save to Files, and so
+on. Worth doing: re-signing a sideloaded build gives it a fresh container, so the record does not
+survive a reinstall. The reverse works too — open a `.plist` with *AirliftSilence* (`Open in
+AirliftSilence`), or just drop it into the app's Documents folder, and it is adopted as the
+canonical pairing file.
+
 ## Build
 
 The Rust core has to be compiled for iOS, so the build needs macOS. If you don't have a Mac,
