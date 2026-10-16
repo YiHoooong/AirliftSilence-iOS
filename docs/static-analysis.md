@@ -39,22 +39,29 @@ The three files this app replaces are **generated on the device by Siri TTS**, n
 **Consequence.** The announcement coming back (issue #3) is not a "silent MobileAsset update" of the
 audio. It is the daemon regenerating its own audio and overwriting what this app wrote.
 
-Measured on the test device (27.0.1):
+Measured on the test device (27.0.1), and the first thing to get straight is what *does* trigger it:
 
-- **A language switch regenerates immediately and reliably.** Switching to English and back
-  regenerated `StartDisclosureWithTone.m4a` twice, once per switch. This is now an on-demand trigger
-  for every experiment below, instead of waiting for Apple to ship something.
-- **The daemon also regenerates on its own, without any configuration change.** Overnight the three
-  files went from the silent versions back to audible ones while nothing was touched. The tell is
-  `StartDisclosureWithTone.m4a`: 18 bytes differ from the previous copy, all inside the MP4 `mvhd`
-  atom's creation/modification timestamps, while the audio payload is byte-identical. Same inputs,
-  new encode — so nothing about the voice or the wording changed. That points at a periodic integrity
-  re-check (the plausible candidate is an iOS maintenance window), which also explains why a daytime
-  reboot does *not* bring the sound back.
+- **A language switch regenerates immediately and reliably.** Switching to English and back regenerated
+  `StartDisclosureWithTone.m4a` twice, once per switch. That is also what happened to the test device
+  the first time the silence disappeared: the owner switched the language to look at the English UI.
+  This is now an on-demand trigger for every experiment below.
+- **Nothing else has been shown to trigger it.** The silent files sat on the device for about ten days
+  before that, including test calls in which the daemon set up its disclosure players and played the
+  silent files without regenerating anything. So there is no evidence of a periodic rebuild, and no
+  evidence of a check on the file's contents — if either existed, those calls would have undone the
+  silence. The one other confirmed overwrite came from Apple's side: on Oct 6 the shipped originals
+  changed (51326 → 46505 bytes, PCM → Opus), which is what a voice or content push looks like from
+  here.
 
-  The MP4 timestamp is useful on its own: it is a cheap "was this regenerated?" fingerprint. The two
-  `.caf` files carry no timestamp, so a deterministic re-encode of them is byte-identical and cannot
-  be told apart from a copy.
+So: the silence is stable until a configuration change — the user's own language switch, a TTS voice
+asset update, or an iOS update — and there is nothing periodic about it. The MP4 timestamp inside
+`StartDisclosureWithTone.m4a` is a cheap "was this rebuilt?" fingerprint: a rebuild produces the same
+audio with 18 differing bytes, all in the `mvhd` creation/modification times. The two `.caf` files
+carry no timestamp, so a deterministic re-encode of them is byte-identical and cannot be told apart
+from a copy.
+
+The practical consequence is not "patch the daemon" but "notice and re-apply": the change is rare,
+announced by the audio itself, and re-applying takes one tap (or one Shortcut).
 
 ## 2. The privilege boundary, measured rather than guessed
 
@@ -85,44 +92,30 @@ Two useful details fall out of it:
 
 ## 3. What is still bypassable
 
-### 3.1 Pinning the regeneration trigger — the most promising lever
+### 3.1 Pinning the regeneration trigger — worth knowing, limited value
 
-`callservicesd` runs as mobile, so its preference domain is
+This was written when the silence looked like it was being undone by the daemon on its own. It is not:
+the only confirmed trigger is a configuration change (see §1). That matters, because pinning can only
+protect against a decision we can influence:
+
+- A **language switch** changes the utterance the daemon wants, so it must regenerate the audio; there
+  is no stored value that could talk it out of that. Pinning cannot help.
+- A **voice asset update** or an **iOS update** is the same story.
+- The one thing pinning *would* fix — a daemon that rebuilt the audio on its own with unchanged inputs
+  — does not appear to exist.
+
+The preference domain is still worth reading, because it is the only place the daemon's expectations
+are visible at all:
 
 ```
 /var/mobile/Library/Preferences/com.apple.telephonyutilities.callservicesd.plist
 ```
 
-and the binary contains a cluster of keys that look exactly like that store:
-
-```
-StartRecordingDisclosureUtterance   EndRecordingDisclosureUtterance   StartRecordingBeepChecksum
-disclosureUtteranceChecksum         disclosureBeepChecksum            endDisclosureUtteranceChecksum
-greetingBeepChecksums               lastSiriVoiceUsedForCallScreeningGreeting
-CALL_RECORDING_START_DISCLOSURE     CALL_RECORDING_END_DISCLOSURE
-```
-
-The regeneration predicate is one of these values. What the overnight regeneration says about it is
-important: the audio came back *without any configuration change*, so the daemon was not reacting to a
-new voice or new wording. The remaining explanations are a mismatch between the file on disk and the
-value the daemon expects, or a periodic forced rebuild. Those two have very different consequences —
-the first is pinnable, the second is not — and the plan below tells them apart.
-
-If it is a mismatch check, the fix is to make the stored value agree with the silent file that is
-actually there (rather than the other way round). The read primitive this project already has reaches
-that plist; the language switch gives an on-demand trigger to diff it.
-
-**Experiment, in this order:**
-
-1. Read the plist (target dir `/var/mobile/Library/Preferences`, leaf
-   `com.apple.telephonyutilities.callservicesd.plist`) and keep a copy.
-2. Wait for the announcement to return — or force it with a language change — and read it again.
-3. Diff. The key that moved is the trigger.
-4. Write that key back to the "already generated" state together with the silent files, then repeat
-   the trigger and see whether the silence holds.
-
-Caveats: `cfprefsd` caches preferences, so a write behind its back may be overwritten; the daemon
-exiting on idle (or a reboot) is what makes the change take effect.
+with keys such as `disclosureUtteranceChecksum`, `StartRecordingDisclosureUtterance`,
+`StartRecordingBeepChecksum`, `greetingBeepChecksums` and `lastSiriVoiceUsedForCallScreeningGreeting`.
+Diffing it across a language switch would show exactly what the daemon stores and what it compares —
+useful if any future iOS version makes regeneration suppressible, and useful context for the issue
+reports. It will not make the silence permanent.
 
 ### 3.2 Blocking the write physically — tested, rejected
 
@@ -184,19 +177,20 @@ file-level trick. Meanwhile "valid silent audio" stays the only shape that keeps
 
 ## 5. Where to look next, in order
 
-1. The preference diff in 3.1 — it is the only lever that addresses "the announcement came back".
-   With the language switch as a trigger, the loop is: silence, read the plist, switch language and
-   switch back, read again, diff. The key that moved is the predicate.
-2. Whether pinning holds across a *spontaneous* regeneration. Put the silent files back, patch the key
-   from step 1 if it exists, then leave the device alone for a night: the MP4 timestamp in
-   `StartDisclosureWithTone.m4a` says whether it was rebuilt. A pinned device that survives the night
-   is the only version of "permanent" that is actually reachable.
-3. `DisclosureWithTone.m4a` (3.3) — cheap to test, and a miss here is a live disclosure we never
-   silenced.
-4. Beta 3 diff, only if support for 27.2 beta 3+ is wanted.
+1. **Detect and re-apply.** This is the answer the mechanism points at: the silence holds until a
+   configuration change, the change is rare, and re-applying is one tap. The app's `Check` action
+   already reports a reverted file, and the Shortcuts actions added in v1.1.0 let a personal
+   automation (daily, or on charge) re-apply it without anyone looking. Worth documenting as the
+   supported answer rather than treating it as a workaround.
+2. `DisclosureWithTone.m4a` (3.3) — cheap to test, and a miss here is a live disclosure never silenced.
+3. Does a TTS *voice* asset update really regenerate the announcements? Oct 6 says the shipped
+   originals changed, but that was measured after the fact. A voice download in Settings would settle
+   it with the timestamp fingerprint.
+4. The preference diff in 3.1 and the beta 3 diff — both informational, neither changes what this app
+   can do.
 
-Note what is *not* on this list any more: the physical write block (3.2) is closed, and so is the idea
-of pointing the path at a read-only target, for the same reason.
+Closed: the physical write block (3.2) is tested and rejected, and with it the read-only-target variant.
+Rejected in this section: any hope of making the silence permanent against configuration changes.
 
 ## 6. A note for field debugging
 

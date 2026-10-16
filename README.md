@@ -181,7 +181,9 @@ like UI text but has no translation.
 - **The announcements are generated on the device by Siri TTS, and iOS regenerates them when the
   voice or the disclosure configuration changes** — no iOS version change, no notification. Then your
   silence is overwritten and the sound comes back; press **Silence the announcements** again. A
-  language change is enough to trigger it, and it is not a boot-time check, so rebooting is safe.
+  language change is enough to trigger it, and it is not a boot-time check, so rebooting is safe. In
+  practice it is rare — ten days of silence is normal — which is why *Check* runs on launch and why
+  the Shortcut actions are there to re-apply it automatically.
   [`docs/static-analysis.md`](docs/static-analysis.md) has the evidence and the ways this could still
   be worked around.
 - The periodic **"ding ding ding"** reminder during a long recording is
