@@ -1,5 +1,7 @@
 # AirliftSilence (iOS)
 
+English | [中文](README.zh-CN.md)
+
 On-device switch for the iPhone call-recording announcement — no computer needed.
 
 A minimal SwiftUI app built on the same AirTraffic sandbox escape as
@@ -148,6 +150,36 @@ airliftsilence://silence
 airliftsilence://restore
 ```
 
+### Keeping the silence, and putting it back automatically
+
+iOS can undo this without telling you. The announcements are generated on the device by Siri TTS, and
+the daemon regenerates them whenever the configuration it expects changes: Apple ships a new voice or
+audio version (that is what happened on the test device, with nobody touching the phone), an iOS update
+rolls around, or you switch the system language. When that happens the sound is back, and **Check**
+reports *Original (audible)*.
+
+Two things are worth knowing before trying to fight it:
+
+- **Nothing can stop the rewrite.** Every obvious block was tried on a device and every one of them
+  fails: an empty directory where the file should be, a read-only file, an immutable file, a read-only
+  directory. File modes do reach the device, but directory modes and file flags do not, so the daemon
+  can always replace the entry instead of writing through it.
+  [`docs/static-analysis.md`](docs/static-analysis.md) has the measurements.
+- **Blocking it breaks recording.** The daemon refuses to record when it cannot produce the
+  disclosure — even with a perfectly valid silent file sitting at the path. A block that holds is not a
+  win, it is a phone that will not record. Don't.
+
+So the answer is to notice and re-apply, which is either one tap or none at all:
+
+1. Shortcuts → *Automation* → **+** → *Charger* (or *Time of Day*, say 4 a.m.) → *Run Immediately*,
+   with **Ask Before Running** turned off.
+2. Action: **AirliftSilence** › *Silence the call-recording announcements*.
+3. Done — a revert now repairs itself within a day.
+
+The run takes 30–60 seconds and brings the app to the front, which is why a charger or an
+early-morning trigger is the pleasant choice. If you would rather stay in control, skip the automation:
+**Check** runs on every launch and turns red with *Original (audible)* when the announcement is back.
+
 ## Languages
 
 English is the development language; Simplified Chinese ships as `zh-Hans`. Strings are **not** in a
@@ -178,14 +210,15 @@ like UI text but has no translation.
 
 ## Known limits
 
-- **The announcements are generated on the device by Siri TTS, and iOS regenerates them when the
-  voice or the disclosure configuration changes** — no iOS version change, no notification. Then your
-  silence is overwritten and the sound comes back; press **Silence the announcements** again. A
-  language change is enough to trigger it, and it is not a boot-time check, so rebooting is safe. In
-  practice it is rare — ten days of silence is normal — which is why *Check* runs on launch and why
-  the Shortcut actions are there to re-apply it automatically.
-  [`docs/static-analysis.md`](docs/static-analysis.md) has the evidence and the ways this could still
-  be worked around.
+- **iOS can undo this, and it cannot be stopped.** The announcements are generated on the device by
+  Siri TTS, and the daemon regenerates them when the configuration it expects changes — an Apple voice
+  or audio update (that is what happened on the test device, with no action from the owner), an iOS
+  update, or a language switch. In between, the silence is stable: ten days including calls and a
+  reboot is normal, and it is not a boot-time check, so rebooting is safe. See
+  [Keeping the silence](#keeping-the-silence-and-putting-it-back-automatically) for the automation that
+  repairs it, and [`docs/static-analysis.md`](docs/static-analysis.md) for the evidence — including the
+  four blocking tricks that were tested on a device and rejected, and why the daemon refuses to record
+  while any of them holds.
 - The periodic **"ding ding ding"** reminder during a long recording is
   `recurringDisclosureTwinkle.caf` inside `TelephonyUtilities.framework` on the sealed system volume.
   This exploit cannot replace a sealed-volume file, so that one stays. Only the start/stop
