@@ -73,6 +73,16 @@ rebuild produces the same audio with 18 differing bytes, all in the `mvhd` creat
 times. The two `.caf` files carry no timestamp, so a deterministic re-encode of them is byte-identical
 and cannot be told apart from a copy.
 
+Two more facts about the gate, both from testing it:
+
+- **The gate is on generation, not playback.** With a perfectly valid silent file at the path, the
+  daemon still refused to record when its own generation of the disclosure had failed. So anything that
+  makes the *write* fail costs recording, even though a usable audio file is sitting right there.
+- **A failed generation is queued and retried.** After the read-only test, `StartDisclosureWithTone.m4a`
+  was rewritten within a minute of the path becoming writable again, while the two `.caf` files were
+  left alone — the retry covers the file the current configuration actually plays. Blocking a write does
+  not prevent the replacement; it postpones it.
+
 The practical consequence is not "patch the daemon" but "notice and re-apply": the change is rare,
 announced by the audio itself, and re-applying takes one tap (or one Shortcut).
 
@@ -132,30 +142,51 @@ Diffing it across a language switch would show exactly what the daemon stores an
 useful if any future iOS version makes regeneration suppressible, and useful context for the issue
 reports. It will not make the silence permanent.
 
-### 3.2 Blocking the write physically — tested, rejected
+### 3.2 Blocking the write physically — all three variants tested, all rejected
 
-The idea: leave something at the announcement path that the daemon cannot write through. An empty
-directory is the strongest shape — it cannot be replaced by an atomic rename (renaming a file over a
-directory fails) and cannot be opened for writing.
+The idea: leave something at the announcement path that the daemon cannot write through. This section
+is the complete record, because it is the obvious idea and it fails in three different ways.
 
-**Tested on the device, and it does not work.**
+**Variant 1 — an empty directory at the file path.** A directory cannot be replaced by an atomic rename
+and cannot be opened for writing.
 
-- The primitive itself is sound. `airlift.py plant --kind dir` installs an empty directory at the
-  path, confirmed two independent ways: a second plant reported `previousSize: null` (the entry could
-  not be read as a file, because it was a directory), and the copy that the second plant moved aside
-  reported `st_ifmt=S_IFDIR` over AFC. That same move-out also proves the tool can **undo** the whole
-  thing, which is what makes this reversible.
-- The daemon then removed it and wrote a real file back. `StopDisclosure.caf` ended up byte-identical
-  to the original, and `StartDisclosureWithTone.m4a` was regenerated twice across the two language
-  switches. The write path is therefore **remove-then-write**, not an atomic replace, and a directory
-  only defeats the latter.
-- The real cost is the side effect: **while the directory was in place, recording was unusable.** The
-  first attempts in both languages failed to start a recording; it worked again — announcement and all
-  — once the daemon had repaired the file. That is the legal-notice gate, and it means blocking this
-  write costs *recording*, not just the announcement.
+- The primitive works. `plant --kind dir` installs an empty directory, confirmed twice over: a second
+  plant reported `previousSize: null`, and the copy the second plant moved aside reported
+  `st_ifmt=S_IFDIR` over AFC. That same move-out also proves the tool can undo it.
+- The daemon removed it and wrote a real file back. `StopDisclosure.caf` ended up byte-identical to the
+  original, and `StartDisclosureWithTone.m4a` was regenerated twice across two language switches. The
+  write path is **remove-then-write**, so an entry-level block only defeats in-place writes.
+- Cost while blocked: **recording was unusable** in both languages until the daemon had repaired the
+  file.
 
-So this route needs the containing directory itself to be unwritable, which is a `chmod` — root, not a
-file-level trick. Meanwhile "valid silent audio" stays the only shape that keeps recording working.
+**Variant 2 — a read-only file (0444).** If the daemon overwrites in place, a read-only file should stop
+it.
+
+- The mode does reach the device: the archive's Unix mode field is honoured for files. Probed directly —
+  writing to a 0444 file over AFC (as `afcd`, i.e. as mobile) is denied, while writing to a 0644 file in
+  the same directory succeeds.
+- It blocks the write, and that is all it blocks: the daemon **removes the entry and creates a new
+  file**, which only needs write permission on the directory. Behaviour was identical to variant 1 —
+  English call: no announcement and *no recording*; back in Chinese, recording worked again with the
+  announcement, after the daemon had replaced the file.
+- The retry queue from §1 then finished the job: the moment the path was writable again,
+  `StartDisclosureWithTone.m4a` was rewritten within a minute while the two `.caf` files stayed silent.
+
+**Variant 3 — a read-only *directory*, or an immutable file.** Both would be stronger than a file mode,
+since unlinking needs write permission on the directory and `UF_IMMUTABLE` blocks unlink outright. Both
+are unavailable through this channel, measured rather than assumed:
+
+- Directory modes are **ignored** by the extractor: a file could still be created inside a directory the
+  archive declared as 0555.
+- Apple's `META-INF/com.apple.ZipMetadata.plist` does not carry them either: with `Records[]` entries
+  asking for `Mode` (0555 on the directory) and `Flags` (`UF_IMMUTABLE` on a 0644 file), neither took —
+  the directory stayed writable and the file stayed writable.
+- The escape carries file modes, not directory modes or flags. That is the whole story of this section.
+
+**So "block the write" is closed**, and it is worth being precise about why: it is not that the daemon
+defends itself cleverly, it is that *any* failure to produce the disclosure disables recording
+(§1) — so a block that holds is not a win either, it is a broken phone. "Valid silent audio" is the only
+shape that keeps recording working, which is what this app does.
 
 ### 3.3 Coverage that may still have a hole
 
@@ -205,8 +236,16 @@ file-level trick. Meanwhile "valid silent audio" stays the only shape that keeps
 4. The preference diff in 3.1 and the beta 3 diff — both informational, neither changes what this app
    can do.
 
-Closed: the physical write block (3.2) is tested and rejected, and with it the read-only-target variant.
-Rejected in this section: any hope of making the silence permanent against configuration changes.
+Closed, and not worth reopening:
+
+- The physical write block (3.2) — all three variants tested and rejected, and every one of them breaks
+  recording while it holds.
+- Any hope of making the silence permanent against a configuration change. The daemon legitimately
+  wants different audio after a language switch, a voice update or an iOS update, and it will get it:
+  the file can be made read-only, but not the directory, and not unremovable.
+
+That leaves "notice and re-apply" as the supported answer, which is what this app already does: `Check`
+on launch reports a reverted file, and the Shortcut actions can re-apply it on a schedule.
 
 ## 6. A note for field debugging
 
