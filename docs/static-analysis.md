@@ -41,24 +41,37 @@ audio. It is the daemon regenerating its own audio and overwriting what this app
 
 Measured on the test device (27.0.1), and the first thing to get straight is what *does* trigger it:
 
-- **A language switch regenerates immediately and reliably.** Switching to English and back regenerated
-  `StartDisclosureWithTone.m4a` twice, once per switch. That is also what happened to the test device
-  the first time the silence disappeared: the owner switched the language to look at the English UI.
-  This is now an on-demand trigger for every experiment below.
-- **Nothing else has been shown to trigger it.** The silent files sat on the device for about ten days
-  before that, including test calls in which the daemon set up its disclosure players and played the
-  silent files without regenerating anything. So there is no evidence of a periodic rebuild, and no
-  evidence of a check on the file's contents — if either existed, those calls would have undone the
-  silence. The one other confirmed overwrite came from Apple's side: on Oct 6 the shipped originals
-  changed (51326 → 46505 bytes, PCM → Opus), which is what a voice or content push looks like from
-  here.
+There are two ways it has been undone, and one of them needs no action from the user at all:
 
-So: the silence is stable until a configuration change — the user's own language switch, a TTS voice
-asset update, or an iOS update — and there is nothing periodic about it. The MP4 timestamp inside
-`StartDisclosureWithTone.m4a` is a cheap "was this rebuilt?" fingerprint: a rebuild produces the same
-audio with 18 differing bytes, all in the `mvhd` creation/modification times. The two `.caf` files
-carry no timestamp, so a deterministic re-encode of them is byte-identical and cannot be told apart
-from a copy.
+1. **Apple replaces the announcement.** The first time the test device lost its silence, the device
+   owner had not touched anything: he checked after someone reported the same thing, and found the
+   sound back. The file evidence matches — around that date the shipped audio changed shape
+   (51326 → 46505 bytes for the m4a, PCM → Opus for the `.caf`) and the silence was overwritten by the
+   new version. That is a TTS voice or content push, the same class of event as an iOS update, and it
+   is why a revert can arrive with no warning.
+2. **The user switches the system language.** Confirmed twice in a row on Oct 15: switching to English
+   and back regenerated `StartDisclosureWithTone.m4a` once per switch. This is also what produced the
+   revert the owner first blamed on the daemon rebuilding itself.
+
+Timeline on the test device, from the copies kept during the work:
+
+| when | what |
+|---|---|
+| Oct 4 | announcements silenced; originals backed up (51326 B m4a, PCM caf) |
+| ~Oct 6 | **Apple's audio replaced the silent files** — silence gone without any user action |
+| Oct 6 | re-silenced against the new originals (46505 B m4a, Opus caf), verified across a reboot |
+| Oct 6 → 15 | silence held ~9 days, including test calls in which the daemon set up its players and played the silent files without rebuilding them |
+| Oct 15 | language switched to check the English UI → regenerated → silence gone |
+| Oct 16 | write-block experiment (failed, §3.2); silence restored and byte-verified |
+
+Two things this rules out, both of which would have made the situation worse: there is **no periodic
+rebuild** (nine days of calls and reboots would have caught it) and **no check on the file's contents**
+(the daemon played files it had not produced, on call after call, and left them alone).
+
+The MP4 timestamp inside `StartDisclosureWithTone.m4a` is a cheap "was this rebuilt?" fingerprint: a
+rebuild produces the same audio with 18 differing bytes, all in the `mvhd` creation/modification
+times. The two `.caf` files carry no timestamp, so a deterministic re-encode of them is byte-identical
+and cannot be told apart from a copy.
 
 The practical consequence is not "patch the daemon" but "notice and re-apply": the change is rare,
 announced by the audio itself, and re-applying takes one tap (or one Shortcut).
@@ -100,7 +113,9 @@ protect against a decision we can influence:
 
 - A **language switch** changes the utterance the daemon wants, so it must regenerate the audio; there
   is no stored value that could talk it out of that. Pinning cannot help.
-- A **voice asset update** or an **iOS update** is the same story.
+- An **Apple-side audio or voice push**, and an **iOS update**, are the same story — and this is the
+  case that actually bit the test device (§1), with no user action involved. The expected disclosure
+  legitimately becomes something else, so no stored value can keep the old silence in place.
 - The one thing pinning *would* fix — a daemon that rebuilt the audio on its own with unchanged inputs
   — does not appear to exist.
 
@@ -177,11 +192,12 @@ file-level trick. Meanwhile "valid silent audio" stays the only shape that keeps
 
 ## 5. Where to look next, in order
 
-1. **Detect and re-apply.** This is the answer the mechanism points at: the silence holds until a
-   configuration change, the change is rare, and re-applying is one tap. The app's `Check` action
-   already reports a reverted file, and the Shortcuts actions added in v1.1.0 let a personal
-   automation (daily, or on charge) re-apply it without anyone looking. Worth documenting as the
-   supported answer rather than treating it as a workaround.
+1. **Detect and re-apply, automatically.** This is now the headline answer rather than a fallback:
+   one of the two known reverts needs no action from the user at all (§1), so waiting to notice it is
+   the wrong model. The app's `Check` action already reports a reverted file on launch, and the
+   Shortcuts actions added in v1.1.0 let a personal automation (daily, or on charge) re-apply the
+   silence without anyone looking. Worth documenting as *the* supported answer, with the automation
+   recipe written out.
 2. `DisclosureWithTone.m4a` (3.3) — cheap to test, and a miss here is a live disclosure never silenced.
 3. Does a TTS *voice* asset update really regenerate the announcements? Oct 6 says the shipped
    originals changed, but that was measured after the fact. A voice download in Settings would settle
