@@ -37,10 +37,24 @@ The three files this app replaces are **generated on the device by Siri TTS**, n
   the audio is expected to live in a writable user directory.
 
 **Consequence.** The announcement coming back (issue #3) is not a "silent MobileAsset update" of the
-audio. It is the TTS voice or the disclosure configuration changing, which changes
-`disclosureUtteranceChecksum`, which makes the daemon regenerate the audio — overwriting what this app
-wrote. It can therefore happen again on a system update, on a language change, or when Apple ships a
-new voice. **Experiment:** switch the device language and see whether the announcement returns.
+audio. It is the daemon regenerating its own audio and overwriting what this app wrote.
+
+Measured on the test device (27.0.1):
+
+- **A language switch regenerates immediately and reliably.** Switching to English and back
+  regenerated `StartDisclosureWithTone.m4a` twice, once per switch. This is now an on-demand trigger
+  for every experiment below, instead of waiting for Apple to ship something.
+- **The daemon also regenerates on its own, without any configuration change.** Overnight the three
+  files went from the silent versions back to audible ones while nothing was touched. The tell is
+  `StartDisclosureWithTone.m4a`: 18 bytes differ from the previous copy, all inside the MP4 `mvhd`
+  atom's creation/modification timestamps, while the audio payload is byte-identical. Same inputs,
+  new encode — so nothing about the voice or the wording changed. That points at a periodic integrity
+  re-check (the plausible candidate is an iOS maintenance window), which also explains why a daytime
+  reboot does *not* bring the sound back.
+
+  The MP4 timestamp is useful on its own: it is a cheap "was this regenerated?" fingerprint. The two
+  `.caf` files carry no timestamp, so a deterministic re-encode of them is byte-identical and cannot
+  be told apart from a copy.
 
 ## 2. The privilege boundary, measured rather than guessed
 
@@ -88,10 +102,15 @@ greetingBeepChecksums               lastSiriVoiceUsedForCallScreeningGreeting
 CALL_RECORDING_START_DISCLOSURE     CALL_RECORDING_END_DISCLOSURE
 ```
 
-The regeneration predicate is one of these values. If it tracks the *configuration* (voice id,
-locale, utterance text) rather than the bytes on disk — which the long lifetime of the current silence
-suggests — then writing back the value the daemon expects to see makes the predicate false and the
-audio is never regenerated. The read primitive this project already has reaches that plist.
+The regeneration predicate is one of these values. What the overnight regeneration says about it is
+important: the audio came back *without any configuration change*, so the daemon was not reacting to a
+new voice or new wording. The remaining explanations are a mismatch between the file on disk and the
+value the daemon expects, or a periodic forced rebuild. Those two have very different consequences —
+the first is pinnable, the second is not — and the plan below tells them apart.
+
+If it is a mismatch check, the fix is to make the stored value agree with the silent file that is
+actually there (rather than the other way round). The read primitive this project already has reaches
+that plist; the language switch gives an on-demand trigger to diff it.
 
 **Experiment, in this order:**
 
@@ -105,23 +124,30 @@ audio is never regenerated. The read primitive this project already has reaches 
 Caveats: `cfprefsd` caches preferences, so a write behind its back may be overwritten; the daemon
 exiting on idle (or a reboot) is what makes the change take effect.
 
-### 3.2 Making the file impossible to overwrite
+### 3.2 Blocking the write physically — tested, rejected
 
-Rather than fighting the trigger, block the write. The play path and the generate path are the same
-path, so replace each announcement with a **relative symlink to a read-only target** (the escape
-already relies on relative symlinks to leave `Media`): playback follows the link and plays silence,
-while regeneration writes through it into a read-only file and fails, leaving the silence in place.
+The idea: leave something at the announcement path that the daemon cannot write through. An empty
+directory is the strongest shape — it cannot be replaced by an atomic rename (renaming a file over a
+directory fails) and cannot be opened for writing.
 
-**Experiment:** does the ATC install move a symlink as a symlink, or follow it? If it renames the
-item, the link lands at the destination intact.
+**Tested on the device, and it does not work.**
 
-Weaker variant: the sync archive can carry Unix mode bits in its ZIP `external_attr`; whether the
-installer honours them is unknown.
+- The primitive itself is sound. `airlift.py plant --kind dir` installs an empty directory at the
+  path, confirmed two independent ways: a second plant reported `previousSize: null` (the entry could
+  not be read as a file, because it was a directory), and the copy that the second plant moved aside
+  reported `st_ifmt=S_IFDIR` over AFC. That same move-out also proves the tool can **undo** the whole
+  thing, which is what makes this reversible.
+- The daemon then removed it and wrote a real file back. `StopDisclosure.caf` ended up byte-identical
+  to the original, and `StartDisclosureWithTone.m4a` was regenerated twice across the two language
+  switches. The write path is therefore **remove-then-write**, not an atomic replace, and a directory
+  only defeats the latter.
+- The real cost is the side effect: **while the directory was in place, recording was unusable.** The
+  first attempts in both languages failed to start a recording; it worked again — announcement and all
+  — once the daemon had repaired the file. That is the legal-notice gate, and it means blocking this
+  write costs *recording*, not just the announcement.
 
-**Do not** simply delete or corrupt these files. `fileExists=false` sends the daemon down its
-regeneration branch, and call recording is a legal-notice feature: a device that cannot play the
-disclosure may refuse to record at all. "Valid silent audio" or "readable but unwritable" are the only
-safe shapes.
+So this route needs the containing directory itself to be unwritable, which is a `chmod` — root, not a
+file-level trick. Meanwhile "valid silent audio" stays the only shape that keeps recording working.
 
 ### 3.3 Coverage that may still have a hole
 
@@ -159,10 +185,18 @@ safe shapes.
 ## 5. Where to look next, in order
 
 1. The preference diff in 3.1 — it is the only lever that addresses "the announcement came back".
-2. Whether the installer preserves symlinks (3.2), which would make regeneration physically fail.
+   With the language switch as a trigger, the loop is: silence, read the plist, switch language and
+   switch back, read again, diff. The key that moved is the predicate.
+2. Whether pinning holds across a *spontaneous* regeneration. Put the silent files back, patch the key
+   from step 1 if it exists, then leave the device alone for a night: the MP4 timestamp in
+   `StartDisclosureWithTone.m4a` says whether it was rebuilt. A pinned device that survives the night
+   is the only version of "permanent" that is actually reachable.
 3. `DisclosureWithTone.m4a` (3.3) — cheap to test, and a miss here is a live disclosure we never
    silenced.
 4. Beta 3 diff, only if support for 27.2 beta 3+ is wanted.
+
+Note what is *not* on this list any more: the physical write block (3.2) is closed, and so is the idea
+of pointing the path at a read-only target, for the same reason.
 
 ## 6. A note for field debugging
 
