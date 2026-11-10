@@ -21,6 +21,15 @@ enum SilenceAction: String, CaseIterable, Sendable {
     }
 }
 
+/// How the bytes get to the device.
+///
+/// One case today. It exists as a seam: the operations below dispatch on it, so a
+/// second transport can be added without touching them or the screen that drives
+/// them.
+enum TransferEngine: String, CaseIterable, Sendable {
+    case airlift
+}
+
 /// Which set of bundled files to push to the device.
 enum ResourceGroup: String, Sendable {
     case silent
@@ -150,6 +159,13 @@ enum SilenceEngine {
     static let defaultTargetHost = "10.7.0.1"
     static let targetHostKey = "silenceDeviceIP"
 
+    static let engineKey = "silenceEngine"
+
+    static var storedEngine: TransferEngine {
+        get { TransferEngine(rawValue: UserDefaults.standard.string(forKey: engineKey) ?? "") ?? .airlift }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: engineKey) }
+    }
+
     /// The app answers `airliftsilence://check`, `://silence` and `://restore`,
     /// so a Shortcut can drive it with nothing but an "Open URLs" action. Must
     /// stay in sync with CFBundleURLSchemes in Info.plist.
@@ -205,11 +221,14 @@ enum SilenceEngine {
 
     /// Blocking entry point for one action. Call off the main thread.
     static func run(_ action: SilenceAction, pairingPath: String) -> SilenceOutcome {
-        applyStoredTargetHost()
-        switch action {
-        case .check: return check(pairingPath: pairingPath)
-        case .silence: return write(.silent, pairingPath: pairingPath)
-        case .restore: return write(.original, pairingPath: pairingPath)
+        switch storedEngine {
+        case .airlift:
+            applyStoredTargetHost()
+            switch action {
+            case .check: return check(pairingPath: pairingPath)
+            case .silence: return write(.silent, pairingPath: pairingPath)
+            case .restore: return write(.original, pairingPath: pairingPath)
+            }
         }
     }
 
